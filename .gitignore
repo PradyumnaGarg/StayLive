@@ -1,0 +1,14 @@
+build/
+dist/
+.DS_Store
+*.xcuserstate
+
+# Never commit videos or converted files
+*.mov
+*.mp4
+*.m4v
+*.mkv
+*.webm
+*.avi
+*.zip
+*.icns
