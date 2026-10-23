@@ -86,6 +86,10 @@ final class DesktopController: ObservableObject {
     }
 
     func start() {
+        if !UserDefaults.standard.bool(forKey: "didConfigureLaunchAtLogin") {
+            UserDefaults.standard.set(true, forKey: "didConfigureLaunchAtLogin")
+            if SMAppService.mainApp.status != .enabled { launchAtLogin = true }
+        }
         rebuildWindows()
         let nc = NotificationCenter.default
         nc.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in

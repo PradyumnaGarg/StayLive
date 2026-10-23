@@ -43,6 +43,7 @@ StayLive turns any video into a moving wallpaper. Drop a clip into the library a
    open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to StayLive.
 
 StayLive lives in your menu bar (look for the ▶︎ icon). Open the library from there.
+It starts automatically when you log in, so your desktop keeps playing after a restart; you can turn that off in Settings.
 
 ## Using it
 

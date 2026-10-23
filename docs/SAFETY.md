@@ -6,7 +6,7 @@ StayLive is designed to be easy to trust and easy to remove. This page lists eve
 
 - It never asks for an administrator password and never runs anything as root.
 - It never touches system files (`/System`, `/Library`) and works with System Integrity Protection fully on.
-- It installs no kernel or system extensions, background daemons or login hooks (launch at login uses Apple's standard "Login Items" mechanism, and only if you turn it on).
+- It installs no kernel or system extensions, background daemons or login hooks (launch at login uses Apple's standard "Login Items" mechanism; it's on after the first launch and can be turned off in Settings or System Settings → General → Login Items).
 - It makes **no network connections**: no analytics, no update checks, no uploads. Your videos never leave your Mac.
 - It requests no privacy permissions (camera, microphone, screen recording, files outside the ones you pick).
 
