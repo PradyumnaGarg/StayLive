@@ -13,6 +13,9 @@ struct Wallpaper: Identifiable, Codable, Hashable {
     var addedAt: Date
     var aerialFileName: String?
     var hasAudio: Bool?
+    var builtInKey: String?
+
+    var isBuiltIn: Bool { builtInKey != nil }
 
     var resolutionLabel: String {
         switch height {
@@ -66,6 +69,23 @@ final class LibraryStore: ObservableObject {
     func thumbnailURL(_ w: Wallpaper) -> URL { AppPaths.thumbnails.appendingPathComponent("\(w.id.uuidString).jpg") }
     func aerialURL(_ w: Wallpaper) -> URL? { w.aerialFileName.map { AppPaths.aerials.appendingPathComponent($0) } }
     func item(_ id: UUID?) -> Wallpaper? { items.first { $0.id == id } }
+
+    var featured: [Wallpaper] {
+        let builtIns = items.filter(\.isBuiltIn)
+        let recent = items.filter { !$0.isBuiltIn }.sorted { $0.addedAt > $1.addedAt }.prefix(5)
+        return Array(recent) + builtIns
+    }
+
+    func addGenerated(id: UUID, url: URL, name: String, builtInKey: String) async {
+        let asset = AVURLAsset(url: url)
+        let duration = (try? await asset.load(.duration).seconds) ?? 20
+        let w = Wallpaper(id: id, name: name, fileName: url.lastPathComponent, duration: duration,
+                          width: BuiltInRenderer.width, height: BuiltInRenderer.height, fps: Double(BuiltInRenderer.fps),
+                          addedAt: Date(), aerialFileName: nil, hasAudio: false, builtInKey: builtInKey)
+        await makeThumbnail(asset: asset, duration: duration, to: thumbnailURL(w))
+        items.append(w)
+        save()
+    }
 
     func thumbnail(_ w: Wallpaper) -> NSImage? {
         if let cached = thumbnailCache[w.id] { return cached }

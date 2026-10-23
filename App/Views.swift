@@ -40,13 +40,51 @@ final class LoopingPlayerNSView: NSView {
     }
 
     func stop() { player.pause(); looper = nil; player.removeAllItems(); url = nil }
+
+    func setMuted(_ muted: Bool) { player.isMuted = muted }
 }
 
 struct LoopingPlayer: NSViewRepresentable {
     let url: URL?
+    var muted = true
     func makeNSView(context: Context) -> LoopingPlayerNSView { LoopingPlayerNSView() }
-    func updateNSView(_ view: LoopingPlayerNSView, context: Context) { view.play(url) }
+    func updateNSView(_ view: LoopingPlayerNSView, context: Context) { view.setMuted(muted); view.play(url) }
     static func dismantleNSView(_ view: LoopingPlayerNSView, coordinator: ()) { view.stop() }
+}
+
+struct HoverPreview: View {
+    @EnvironmentObject private var library: LibraryStore
+    let wallpaper: Wallpaper
+    var playing: Bool = false
+    @State private var hovering = false
+    @State private var previewing = false
+
+    var body: some View {
+        ZStack {
+            if let image = library.thumbnail(wallpaper) {
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+            } else {
+                Theme.panel
+            }
+            if previewing || playing {
+                LoopingPlayer(url: library.videoURL(wallpaper))
+                    .transition(.opacity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+        .onHover { inside in
+            hovering = inside
+            if inside {
+                Task {
+                    try? await Task.sleep(for: .milliseconds(350))
+                    if hovering { withAnimation(.easeIn(duration: 0.2)) { previewing = true } }
+                }
+            } else {
+                withAnimation(.easeOut(duration: 0.15)) { previewing = false }
+            }
+        }
+    }
 }
 
 struct Badge: View {
@@ -84,17 +122,7 @@ struct WallpaperCard: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            Group {
-                if hovering {
-                    LoopingPlayer(url: library.videoURL(wallpaper))
-                } else if let image = library.thumbnail(wallpaper) {
-                    Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    Rectangle().fill(.quaternary)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
+            HoverPreview(wallpaper: wallpaper)
 
             LinearGradient(colors: [.clear, .black.opacity(0.65)], startPoint: .center, endPoint: .bottom)
 
@@ -136,267 +164,86 @@ struct WallpaperCard: View {
     }
 }
 
-struct FeaturedCarousel: View {
-    @EnvironmentObject private var library: LibraryStore
-    @EnvironmentObject private var desktop: DesktopController
-    @EnvironmentObject private var lockScreen: LockScreenController
-    @EnvironmentObject private var screenSaver: ScreenSaverController
-    @Binding var focusedID: UUID?
-    var onShowDetails: () -> Void
+enum AppSection: String, Hashable, CaseIterable {
+    case home, library, settings
 
-    var body: some View {
-        GeometryReader { geo in
-            let cardWidth = min(geo.size.width * 0.62, 780)
-            let cardHeight = cardWidth * 9 / 16
-            ZStack {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 18) {
-                        ForEach(library.items) { w in
-                            CarouselCard(wallpaper: w, isFocused: focusedID == w.id, onShowDetails: onShowDetails)
-                                .frame(width: cardWidth, height: cardHeight)
-                                .id(w.id)
-                                .scrollTransition(.interactive, axis: .horizontal) { content, phase in
-                                    content
-                                        .scaleEffect(phase.isIdentity ? 1 : 0.82)
-                                        .opacity(phase.isIdentity ? 1 : 0.55)
-                                        .blur(radius: phase.isIdentity ? 0 : 5)
-                                        .rotation3DEffect(.degrees(phase.value * -22), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
-                                }
-                                .onTapGesture { withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { focusedID = w.id } }
-                        }
-                    }
-                    .scrollTargetLayout()
-                }
-                .scrollTargetBehavior(.viewAligned)
-                .scrollPosition(id: $focusedID, anchor: .center)
-                .contentMargins(.horizontal, (geo.size.width - cardWidth) / 2, for: .scrollContent)
-                .scrollClipDisabled()
-
-                HStack {
-                    arrow("chevron.left", offset: -1).keyboardShortcut(.leftArrow, modifiers: [])
-                    Spacer()
-                    arrow("chevron.right", offset: 1).keyboardShortcut(.rightArrow, modifiers: [])
-                }
-                .padding(.horizontal, max(8, (geo.size.width - cardWidth) / 2 - 64))
-            }
-            .frame(width: geo.size.width, height: cardHeight)
-            .onAppear { carouselHeight = cardHeight }
-            .onChange(of: geo.size.width) { carouselHeight = min(geo.size.width * 0.62, 780) * 9 / 16 }
+    var title: String {
+        switch self {
+        case .home: return "Home"
+        case .library: return "Library"
+        case .settings: return "Settings"
         }
-        .frame(height: carouselHeight)
-        .padding(.vertical, 12)
     }
 
-    @State private var carouselHeight: CGFloat = 380
-
-    private func arrow(_ symbol: String, offset: Int) -> some View {
-        Button { move(offset) } label: {
-            Image(systemName: symbol)
-                .font(.title3.weight(.semibold))
-                .frame(width: 40, height: 40)
-                .background(.ultraThinMaterial, in: Circle())
-                .overlay(Circle().strokeBorder(Theme.cardStroke))
+    var symbol: String {
+        switch self {
+        case .home: return "house"
+        case .library: return "square.grid.2x2"
+        case .settings: return "gearshape"
         }
-        .buttonStyle(.plain)
-        .disabled(library.items.count < 2)
-    }
-
-    private func move(_ offset: Int) {
-        guard let index = library.items.firstIndex(where: { $0.id == focusedID }) else {
-            focusedID = library.items.first?.id
-            return
-        }
-        let next = (index + offset + library.items.count) % library.items.count
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { focusedID = library.items[next].id }
     }
 }
 
-struct CarouselCard: View {
-    @EnvironmentObject private var library: LibraryStore
-    @EnvironmentObject private var desktop: DesktopController
-    @EnvironmentObject private var lockScreen: LockScreenController
-    @EnvironmentObject private var screenSaver: ScreenSaverController
-    let wallpaper: Wallpaper
-    let isFocused: Bool
-    var onShowDetails: () -> Void
+enum LibraryFilter: String, CaseIterable {
+    case all = "All", builtIn = "Built-in", mine = "My Videos"
+}
 
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            Group {
-                if isFocused {
-                    LoopingPlayer(url: library.videoURL(wallpaper))
-                } else if let image = library.thumbnail(wallpaper) {
-                    Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    Theme.panel
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
+@MainActor
+final class AppNavigation: ObservableObject {
+    static let shared = AppNavigation()
+    @Published var section: AppSection = .home
+    @Published var selectedID: UUID?
+    @Published var showDetails = false
+    @Published var filter: LibraryFilter = .all
 
-            LinearGradient(colors: [.clear, .clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
-
-            if isFocused {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .bottom) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(wallpaper.name)
-                                .font(.system(size: 26, weight: .bold, design: .rounded))
-                                .lineLimit(1)
-                            Text("\(wallpaper.resolutionLabel) · \(wallpaper.durationLabel)\(wallpaper.hasAudio == true ? " · Sound" : "")")
-                                .font(.callout).foregroundStyle(.white.opacity(0.75))
-                        }
-                        Spacer()
-                        HStack(spacing: 6) {
-                            if desktop.currentID == wallpaper.id { Badge(text: "On desktop", symbol: "desktopcomputer", compact: true) }
-                            if lockScreen.installedID == wallpaper.id { Badge(text: "On lock screen", symbol: "lock.fill", compact: true) }
-                            if screenSaver.currentID == wallpaper.id { Badge(text: "Screen saver", symbol: "sparkles.tv", compact: true) }
-                        }
-                    }
-                    actionBar
-                }
-                .foregroundStyle(.white)
-                .padding(20)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Theme.cardStroke))
-        .shadow(color: .black.opacity(isFocused ? 0.45 : 0.2), radius: isFocused ? 28 : 10, y: isFocused ? 14 : 6)
-        .animation(.easeOut(duration: 0.25), value: isFocused)
-        .contextMenu {
-            Button("Set as Desktop") { desktop.setWallpaper(wallpaper.id) }
-            Button("Set as Lock Screen") { lockScreen.apply(wallpaper) }
-            Button("Set as Screen Saver") { screenSaver.set(wallpaper) }
-        }
-    }
-
-    private var actionBar: some View {
-        HStack(spacing: 8) {
-            Button { desktop.setWallpaper(wallpaper.id); lockScreen.apply(wallpaper); screenSaver.set(wallpaper) } label: {
-                Label("Use Everywhere", systemImage: "sparkles")
-            }
-            .buttonStyle(GradientButtonStyle())
-            glassIcon("desktopcomputer", "Set as desktop") { desktop.setWallpaper(wallpaper.id) }
-            glassIcon("lock", "Set as lock screen") { lockScreen.apply(wallpaper) }
-            glassIcon("sparkles.tv", "Set as screen saver") { screenSaver.set(wallpaper) }
-            Spacer()
-            if lockScreen.convertingID == wallpaper.id {
-                HStack(spacing: 8) {
-                    GradientRing(value: lockScreen.progress)
-                    Text("~\(LockScreenController.durationText(lockScreen.remainingSeconds(wallpaper)))").font(.caption).monospacedDigit()
-                }
-                .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(.ultraThinMaterial, in: Capsule())
-            }
-            glassIcon("info.circle", "Details") { onShowDetails() }
-        }
-    }
-
-    private func glassIcon(_ symbol: String, _ help: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.body.weight(.medium))
-                .frame(width: 42, height: 40)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.cardStroke))
-        }
-        .buttonStyle(.plain)
-        .help(help)
+    func open(_ w: Wallpaper) {
+        selectedID = w.id
+        showDetails = true
     }
 }
 
-struct StatusBar: View {
+struct RootView: View {
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var desktop: DesktopController
     @EnvironmentObject private var lockScreen: LockScreenController
     @EnvironmentObject private var screenSaver: ScreenSaverController
-
-    var body: some View {
-        HStack(spacing: 14) {
-            Button { desktop.togglePause() } label: {
-                Image(systemName: desktop.isUserPaused ? "play.fill" : "pause.fill")
-                    .frame(width: 34, height: 34)
-                    .background(Theme.accent, in: Circle())
-                    .foregroundStyle(.white)
-            }
-            .buttonStyle(.plain)
-            .disabled(desktop.currentID == nil)
-            .help(desktop.isUserPaused ? "Resume desktop" : "Pause desktop")
-
-            item("desktopcomputer", "Desktop", library.item(desktop.currentID)?.name ?? "None",
-                 detail: desktop.isPlaying ? "Playing" : (desktop.isUserPaused ? "Paused" : "Idle"))
-            Divider().frame(height: 26)
-            item("lock.fill", "Lock screen", library.item(lockScreen.installedID)?.name
-                 ?? lockScreen.aerialName.map { "Apple \($0)" } ?? "Apple default")
-            Divider().frame(height: 26)
-            item("sparkles.tv", "Screen saver", library.item(screenSaver.currentID)?.name ?? "Not set")
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.cardStroke))
-    }
-
-    private func item(_ symbol: String, _ title: String, _ value: String, detail: String? = nil) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: symbol).foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.caption2).foregroundStyle(.secondary)
-                Text(detail.map { "\(value) · \($0)" } ?? value).font(.callout.weight(.medium)).lineLimit(1)
-            }
-        }
-        .frame(maxWidth: 260, alignment: .leading)
-    }
-}
-
-struct LibraryView: View {
-    @EnvironmentObject private var library: LibraryStore
-    @EnvironmentObject private var desktop: DesktopController
-    @EnvironmentObject private var lockScreen: LockScreenController
-    @EnvironmentObject private var screenSaver: ScreenSaverController
-    @State private var selection: UUID?
-    @State private var showInspector = false
+    @EnvironmentObject private var nav: AppNavigation
     @State private var importing = false
     @State private var dropTargeted = false
 
-    private let columns = [GridItem(.adaptive(minimum: 240, maximum: 360), spacing: 20)]
-
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                if !library.items.isEmpty {
-                    FeaturedCarousel(focusedID: $selection) { showInspector = true }
-                        .padding(.horizontal, -28)
-                    StatusBar()
-                }
-                HStack(alignment: .firstTextBaseline) {
-                    Capsule().fill(Theme.accent).frame(width: 4, height: 22).alignmentGuide(.firstTextBaseline) { $0[.bottom] - 4 }
-                    Text("Library").font(.title2.bold())
-                    Text("\(library.items.count)").font(.title3).foregroundStyle(.secondary)
-                    Spacer()
-                    if library.isImporting { ProgressView().controlSize(.small) }
-                }
-                if library.items.isEmpty {
-                    emptyState
-                } else {
-                    LazyVGrid(columns: columns, spacing: 20) {
-                        ForEach(library.items) { w in
-                            WallpaperCard(wallpaper: w, isSelected: selection == w.id)
-                                .onTapGesture { withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { selection = w.id } }
-                                .onTapGesture(count: 2) { desktop.setWallpaper(w.id) }
-                                .contextMenu { contextMenu(for: w) }
-                        }
-                    }
+        NavigationSplitView {
+            List(AppSection.allCases, id: \.self, selection: Binding(get: { nav.section }, set: { if let s = $0 { nav.section = s } })) { section in
+                Label(section.title, systemImage: section.symbol)
+                    .badge(section == .library ? library.items.count : 0)
+            }
+            .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 220)
+        } detail: {
+            Group {
+                switch nav.section {
+                case .home: HomeView(importing: $importing)
+                case .library: LibraryPage(importing: $importing)
+                case .settings: SettingsView()
                 }
             }
-            .padding(28)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(AmbientBackground(image: library.item(desktop.currentID).flatMap { library.thumbnail($0) }))
+            .inspector(isPresented: $nav.showDetails) {
+                if let w = library.item(nav.selectedID) {
+                    InspectorView(wallpaper: w)
+                        .inspectorColumnWidth(min: 300, ideal: 340, max: 420)
+                } else {
+                    ContentUnavailableView("No Selection", systemImage: "photo.on.rectangle",
+                                           description: Text("Select a wallpaper to see details."))
+                }
+            }
         }
-        .background(AmbientBackground(image: library.item(selection ?? desktop.currentID).flatMap { library.thumbnail($0) })
-            .animation(.easeInOut(duration: 0.6), value: selection))
-        .toolbarBackground(.hidden, for: .windowToolbar)
-        .onAppear { if selection == nil { selection = desktop.currentID ?? library.items.first?.id } }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { importing = true } label: { Label("Add Videos", systemImage: "plus") }
+                    .help("Add videos to your library")
+            }
+        }
         .overlay {
             if dropTargeted {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -410,30 +257,12 @@ struct LibraryView: View {
         .dropDestination(for: URL.self) { urls, _ in
             let videos = urls.filter { UTType(filenameExtension: $0.pathExtension)?.conforms(to: .movie) ?? false }
             guard !videos.isEmpty else { return false }
-            Task { if let first = await library.importVideos(videos).first { selection = first.id; showInspector = true } }
+            add(videos)
             return true
         } isTargeted: { dropTargeted = $0 }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { importing = true } label: { Label("Add Videos", systemImage: "plus") }
-                    .help("Add videos to your library")
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button { showInspector.toggle() } label: { Label("Details", systemImage: "sidebar.right") }
-                    .disabled(selection == nil)
-            }
-        }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.movie], allowsMultipleSelection: true) { result in
             guard case .success(let urls) = result else { return }
-            Task { if let first = await library.importVideos(urls).first { selection = first.id; showInspector = true } }
-        }
-        .inspector(isPresented: $showInspector) {
-            if let w = library.item(selection) {
-                InspectorView(wallpaper: w)
-                    .inspectorColumnWidth(min: 300, ideal: 340, max: 420)
-            } else {
-                ContentUnavailableView("No Selection", systemImage: "photo.on.rectangle", description: Text("Select a wallpaper to see details."))
-            }
+            add(urls)
         }
         .alert("Screen Saver", isPresented: Binding(
             get: { screenSaver.errorMessage != nil },
@@ -454,10 +283,278 @@ struct LibraryView: View {
         .onAppear { lockScreen.refresh() }
     }
 
+    private func add(_ urls: [URL]) {
+        Task {
+            if let first = await library.importVideos(urls).first {
+                nav.section = .library
+                nav.open(first)
+            }
+        }
+    }
+}
+
+struct SectionHeader: View {
+    let title: String
+    var subtitle: String?
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.title2.bold())
+            if let subtitle { Text(subtitle).font(.callout).foregroundStyle(.secondary) }
+        }
+    }
+}
+
+struct HomeView: View {
+    @EnvironmentObject private var library: LibraryStore
+    @EnvironmentObject private var builtIns: BuiltInLibrary
+    @EnvironmentObject private var nav: AppNavigation
+    @Binding var importing: Bool
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("StayLive").font(.system(size: 34, weight: .bold, design: .rounded))
+                    Text("Moving wallpapers for your desktop, lock screen and screen saver.")
+                        .foregroundStyle(.secondary)
+                }
+
+                if let style = builtIns.currentStyle {
+                    HStack(spacing: 12) {
+                        GradientRing(value: builtIns.progress)
+                        Text("Preparing built-in wallpaper “\(style.name)”…").font(.callout)
+                        Spacer()
+                    }
+                    .padding(14)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+
+                if !library.featured.isEmpty {
+                    SectionHeader(title: "Featured", subtitle: "Hover to preview, click for details and sound.")
+                    FeaturedCarousel(items: library.featured)
+                        .padding(.horizontal, -28)
+                }
+
+                SectionHeader(title: "Now Showing")
+                NowShowing()
+
+                HStack(spacing: 12) {
+                    Button { importing = true } label: { Label("Add Your Own Videos", systemImage: "plus") }
+                        .buttonStyle(GradientButtonStyle())
+                        .fixedSize()
+                    Button { nav.section = .library } label: { Label("Browse Library", systemImage: "square.grid.2x2") }
+                        .buttonStyle(GlassButtonStyle())
+                        .fixedSize()
+                }
+            }
+            .padding(28)
+        }
+    }
+}
+
+struct FeaturedCarousel: View {
+    @EnvironmentObject private var nav: AppNavigation
+    let items: [Wallpaper]
+    @State private var focusedID: UUID?
+    @State private var height: CGFloat = 300
+
+    var body: some View {
+        GeometryReader { geo in
+            let cardWidth = min(geo.size.width * 0.5, 620)
+            let cardHeight = cardWidth * 9 / 16
+            ZStack {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 22) {
+                        ForEach(items) { w in
+                            FeaturedCard(wallpaper: w)
+                                .frame(width: cardWidth, height: cardHeight)
+                                .id(w.id)
+                                .scrollTransition(.interactive, axis: .horizontal) { content, phase in
+                                    content
+                                        .scaleEffect(phase.isIdentity ? 1 : 0.86)
+                                        .opacity(phase.isIdentity ? 1 : 0.6)
+                                        .rotation3DEffect(.degrees(phase.value * -12), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
+                                }
+                                .onTapGesture { nav.open(w) }
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .scrollTargetBehavior(.viewAligned)
+                .scrollPosition(id: $focusedID, anchor: .center)
+                .contentMargins(.horizontal, (geo.size.width - cardWidth) / 2, for: .scrollContent)
+                .scrollClipDisabled()
+
+                HStack {
+                    arrow("chevron.left", -1).keyboardShortcut(.leftArrow, modifiers: [])
+                    Spacer()
+                    arrow("chevron.right", 1).keyboardShortcut(.rightArrow, modifiers: [])
+                }
+                .padding(.horizontal, max(8, (geo.size.width - cardWidth) / 2 - 60))
+            }
+            .frame(width: geo.size.width, height: cardHeight)
+            .onAppear { height = cardHeight; if focusedID == nil { focusedID = items.first?.id } }
+            .onChange(of: geo.size.width) { height = min(geo.size.width * 0.5, 620) * 9 / 16 }
+        }
+        .frame(height: height)
+    }
+
+    private func arrow(_ symbol: String, _ offset: Int) -> some View {
+        Button {
+            guard !items.isEmpty else { return }
+            let index = items.firstIndex { $0.id == focusedID } ?? 0
+            let next = (index + offset + items.count) % items.count
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.9)) { focusedID = items[next].id }
+        } label: {
+            Image(systemName: symbol)
+                .font(.title3.weight(.semibold))
+                .frame(width: 40, height: 40)
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(Theme.cardStroke))
+        }
+        .buttonStyle(.plain)
+        .disabled(items.count < 2)
+    }
+}
+
+struct FeaturedCard: View {
+    let wallpaper: Wallpaper
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            HoverPreview(wallpaper: wallpaper)
+            LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
+                .allowsHitTesting(false)
+            VStack(alignment: .leading, spacing: 3) {
+                if wallpaper.isBuiltIn {
+                    Text("BUILT-IN").font(.caption2.weight(.bold)).foregroundStyle(.white.opacity(0.7))
+                }
+                Text(wallpaper.name).font(.system(size: 22, weight: .bold, design: .rounded)).lineLimit(1)
+                Text("\(wallpaper.resolutionLabel) · \(wallpaper.durationLabel)\(wallpaper.hasAudio == true ? " · Sound" : "")")
+                    .font(.caption).foregroundStyle(.white.opacity(0.75))
+            }
+            .foregroundStyle(.white)
+            .padding(18)
+            .allowsHitTesting(false)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.cardStroke))
+        .shadow(color: .black.opacity(0.35), radius: 18, y: 10)
+        .contentShape(Rectangle())
+    }
+}
+
+struct NowShowing: View {
+    @EnvironmentObject private var library: LibraryStore
+    @EnvironmentObject private var desktop: DesktopController
+    @EnvironmentObject private var lockScreen: LockScreenController
+    @EnvironmentObject private var screenSaver: ScreenSaverController
+    @EnvironmentObject private var nav: AppNavigation
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            slot(title: "Desktop", symbol: "desktopcomputer", wallpaper: library.item(desktop.currentID),
+                 fallback: "Nothing playing",
+                 detail: desktop.currentID == nil ? nil : (desktop.isPlaying ? "Playing" : (desktop.isUserPaused ? "Paused" : "Idle"))) {
+                if desktop.currentID != nil {
+                    Button { desktop.togglePause() } label: {
+                        Image(systemName: desktop.isUserPaused ? "play.fill" : "pause.fill")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(desktop.isUserPaused ? "Resume" : "Pause")
+                }
+            }
+            slot(title: "Lock Screen", symbol: "lock.fill", wallpaper: library.item(lockScreen.installedID),
+                 fallback: lockScreen.aerialName.map { "Apple \($0)" } ?? "Apple default",
+                 detail: lockScreen.convertingID.flatMap { library.item($0) }.map { "Converting \($0.name)… \(Int(lockScreen.progress * 100))%" }) { EmptyView() }
+            slot(title: "Screen Saver", symbol: "sparkles.tv", wallpaper: library.item(screenSaver.currentID),
+                 fallback: "Not set", detail: nil) { EmptyView() }
+        }
+    }
+
+    private func slot<Accessory: View>(title: String, symbol: String, wallpaper: Wallpaper?, fallback: String, detail: String?,
+                                       @ViewBuilder accessory: () -> Accessory) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack {
+                if let wallpaper {
+                    HoverPreview(wallpaper: wallpaper)
+                } else {
+                    Theme.panel.overlay(Image(systemName: symbol).font(.largeTitle).foregroundStyle(.tertiary))
+                }
+            }
+            .aspectRatio(16 / 9, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.cardStroke))
+            .onTapGesture { if let wallpaper { nav.open(wallpaper) } else { nav.section = .library } }
+
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label(title, systemImage: symbol).font(.caption).foregroundStyle(.secondary)
+                    Text(wallpaper?.name ?? fallback).font(.callout.weight(.semibold)).lineLimit(1)
+                    if let detail { Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                }
+                Spacer()
+                accessory()
+            }
+        }
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.cardStroke))
+        .frame(maxWidth: .infinity)
+    }
+}
+
+struct LibraryPage: View {
+    @EnvironmentObject private var library: LibraryStore
+    @EnvironmentObject private var desktop: DesktopController
+    @EnvironmentObject private var lockScreen: LockScreenController
+    @EnvironmentObject private var screenSaver: ScreenSaverController
+    @EnvironmentObject private var nav: AppNavigation
+    @Binding var importing: Bool
+
+    private let columns = [GridItem(.adaptive(minimum: 220, maximum: 340), spacing: 18)]
+
+    private var visible: [Wallpaper] {
+        switch nav.filter {
+        case .all: return library.items
+        case .builtIn: return library.items.filter(\.isBuiltIn)
+        case .mine: return library.items.filter { !$0.isBuiltIn }
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack {
+                    SectionHeader(title: "Library", subtitle: "\(library.items.count) wallpapers")
+                    Spacer()
+                    if library.isImporting { ProgressView().controlSize(.small) }
+                    Picker("", selection: $nav.filter) {
+                        ForEach(LibraryFilter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .fixedSize()
+                }
+                if visible.isEmpty {
+                    emptyState
+                } else {
+                    LazyVGrid(columns: columns, spacing: 18) {
+                        ForEach(visible) { w in
+                            WallpaperCard(wallpaper: w, isSelected: nav.selectedID == w.id && nav.showDetails)
+                                .onTapGesture { nav.open(w) }
+                                .contextMenu { WallpaperContextMenu(wallpaper: w) }
+                        }
+                    }
+                }
+            }
+            .padding(28)
+        }
+    }
+
     private var emptyState: some View {
         VStack(spacing: 14) {
             Image(systemName: "film.stack").font(.system(size: 44)).foregroundStyle(.secondary)
-            Text("Your library is empty").font(.title3.bold())
+            Text(nav.filter == .mine ? "No videos of your own yet" : "Your library is empty").font(.title3.bold())
             Text("Drag videos here or click Add Videos.").foregroundStyle(.secondary)
             Button("Add Videos…") { importing = true }.buttonStyle(GradientButtonStyle()).fixedSize()
         }
@@ -465,18 +562,26 @@ struct LibraryView: View {
         .background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.cardStroke, style: StrokeStyle(lineWidth: 1, dash: [8, 6])))
     }
+}
 
-    @ViewBuilder
-    private func contextMenu(for w: Wallpaper) -> some View {
-        Button("Set as Desktop") { desktop.setWallpaper(w.id) }
-        Button("Set as Lock Screen") { lockScreen.apply(w) }
-        Button("Set as Screen Saver") { screenSaver.set(w) }
-        Button("Use Everywhere") { desktop.setWallpaper(w.id); lockScreen.apply(w); screenSaver.set(w) }
+struct WallpaperContextMenu: View {
+    @EnvironmentObject private var library: LibraryStore
+    @EnvironmentObject private var desktop: DesktopController
+    @EnvironmentObject private var lockScreen: LockScreenController
+    @EnvironmentObject private var screenSaver: ScreenSaverController
+    @EnvironmentObject private var nav: AppNavigation
+    let wallpaper: Wallpaper
+
+    var body: some View {
+        Button("Set as Desktop") { desktop.setWallpaper(wallpaper.id) }
+        Button("Set as Lock Screen") { lockScreen.apply(wallpaper) }
+        Button("Set as Screen Saver") { screenSaver.set(wallpaper) }
+        Button("Use Everywhere") { desktop.setWallpaper(wallpaper.id); lockScreen.apply(wallpaper); screenSaver.set(wallpaper) }
         Divider()
-        Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([library.videoURL(w)]) }
+        Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([library.videoURL(wallpaper)]) }
         Button("Remove from Library", role: .destructive) {
-            if selection == w.id { selection = nil }
-            library.remove(w)
+            if nav.selectedID == wallpaper.id { nav.showDetails = false; nav.selectedID = nil }
+            library.remove(wallpaper)
         }
     }
 }
@@ -488,12 +593,25 @@ struct InspectorView: View {
     @EnvironmentObject private var screenSaver: ScreenSaverController
     let wallpaper: Wallpaper
     @State private var name = ""
+    @State private var previewMuted = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                LoopingPlayer(url: library.videoURL(wallpaper))
+                LoopingPlayer(url: library.videoURL(wallpaper), muted: previewMuted)
                     .aspectRatio(16 / 9, contentMode: .fit)
+                    .overlay(alignment: .bottomTrailing) {
+                        if wallpaper.hasAudio == true {
+                            Button { previewMuted.toggle() } label: {
+                                Image(systemName: previewMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                                    .frame(width: 30, height: 30)
+                                    .background(.ultraThinMaterial, in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .padding(8)
+                            .help(previewMuted ? "Play sound" : "Mute")
+                        }
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.cardStroke))
                     .shadow(color: .black.opacity(0.3), radius: 10, y: 5)
@@ -550,7 +668,7 @@ struct InspectorView: View {
         }
         .background(Theme.panel.opacity(0.85).ignoresSafeArea())
         .onAppear { name = wallpaper.name }
-        .onChange(of: wallpaper.id) { name = wallpaper.name }
+        .onChange(of: wallpaper.id) { name = wallpaper.name; previewMuted = false }
     }
 
     private var isOnLockScreen: Bool {
@@ -636,7 +754,7 @@ struct MenuBarView: View {
         VStack(alignment: .leading, spacing: 12) {
             if let current = library.item(desktop.currentID) {
                 ZStack(alignment: .bottomLeading) {
-                    LoopingPlayer(url: library.videoURL(current))
+                    HoverPreview(wallpaper: current)
                     LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .center, endPoint: .bottom)
                     HStack {
                         Text(current.name).font(.headline).lineLimit(1)
@@ -706,12 +824,18 @@ struct MenuBarView: View {
             Divider()
 
             HStack {
-                Button("Open Library") {
+                Button("Open StayLive") {
+                    AppNavigation.shared.section = .home
                     openWindow(id: "library")
                     NSApp.activate(ignoringOtherApps: true)
                 }
                 Spacer()
-                SettingsLink { Image(systemName: "gearshape") }.help("Settings")
+                Button {
+                    AppNavigation.shared.section = .settings
+                    openWindow(id: "library")
+                    NSApp.activate(ignoringOtherApps: true)
+                } label: { Image(systemName: "gearshape") }
+                .help("Settings")
                 Button { NSApp.terminate(nil) } label: { Image(systemName: "power") }.help("Quit")
             }
             .buttonStyle(.borderless)
@@ -757,15 +881,20 @@ struct SettingsView: View {
                     .disabled(!lockScreen.hasBackup || lockScreen.installedID == nil || lockScreen.installingID != nil)
                 Text("Choose which Aerial to replace in System Settings → Wallpaper.").font(.caption).foregroundStyle(.secondary)
             }
+            Section("Built-in Wallpapers") {
+                Button("Restore Built-in Wallpapers") { BuiltInLibrary.shared.restoreMissing() }
+                Text("Recreates any built-in wallpapers you removed. They're generated on your Mac; nothing is downloaded.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Storage") {
                 Button("Show Library Folder") { NSWorkspace.shared.activateFileViewerSelecting([AppPaths.root]) }
             }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
-        .background(Theme.background)
+        .frame(maxWidth: 640)
+        .frame(maxWidth: .infinity)
         .preferredColorScheme(.dark)
-        .frame(width: 440)
         .onAppear { lockScreen.refresh() }
     }
 }

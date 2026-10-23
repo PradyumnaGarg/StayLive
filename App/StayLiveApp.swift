@@ -7,10 +7,14 @@ struct StayLiveApp: App {
     @StateObject private var desktop = DesktopController.shared
     @StateObject private var lockScreen = LockScreenController.shared
     @StateObject private var screenSaver = ScreenSaverController.shared
+    @StateObject private var nav = AppNavigation.shared
+    @StateObject private var builtIns = BuiltInLibrary.shared
 
     var body: some Scene {
         Window("StayLive", id: "library") {
-            LibraryView()
+            RootView()
+                .environmentObject(nav)
+                .environmentObject(builtIns)
                 .environmentObject(library)
                 .environmentObject(desktop)
                 .environmentObject(lockScreen)
@@ -19,7 +23,13 @@ struct StayLiveApp: App {
                 .preferredColorScheme(.dark)
         }
         .windowToolbarStyle(.unified)
-        .defaultSize(width: 1100, height: 700)
+        .defaultSize(width: 1180, height: 760)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { nav.section = .settings }
+                    .keyboardShortcut(",")
+            }
+        }
 
         MenuBarExtra {
             MenuBarView()
@@ -31,13 +41,6 @@ struct StayLiveApp: App {
             Image(systemName: desktop.isUserPaused ? "pause.rectangle" : "play.rectangle.fill")
         }
         .menuBarExtraStyle(.window)
-
-        Settings {
-            SettingsView()
-                .environmentObject(desktop)
-                .environmentObject(lockScreen)
-                .environmentObject(screenSaver)
-        }
     }
 }
 
@@ -46,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.appearance = NSAppearance(named: .darkAqua)
         DesktopController.shared.start()
         ScreenSaverController.shared.upgradeIfNeeded()
+        BuiltInLibrary.shared.ensureInstalled()
         NSApp.activate(ignoringOtherApps: true)
     }
 
