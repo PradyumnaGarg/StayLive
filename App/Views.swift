@@ -590,7 +590,7 @@ struct LibraryPage: View {
             .padding(28)
         }
         .inspector(isPresented: $nav.showDetails) {
-            if let w = library.item(nav.selectedID) {
+            if nav.showDetails, let w = library.item(nav.selectedID) {
                 InspectorView(wallpaper: w)
                     .inspectorColumnWidth(min: 300, ideal: 340, max: 420)
             } else {
@@ -640,6 +640,7 @@ struct InspectorView: View {
     @EnvironmentObject private var desktop: DesktopController
     @EnvironmentObject private var lockScreen: LockScreenController
     @EnvironmentObject private var screenSaver: ScreenSaverController
+    @EnvironmentObject private var nav: AppNavigation
     let wallpaper: Wallpaper
     @State private var name = ""
     @State private var previewMuted = false
@@ -660,7 +661,7 @@ struct InspectorView: View {
                     .keyboardShortcut(.escape, modifiers: [])
                     .help("Close details")
                 }
-                LoopingPlayer(url: library.videoURL(wallpaper), muted: previewMuted)
+                LoopingPlayer(url: nav.showDetails ? library.videoURL(wallpaper) : nil, muted: previewMuted || !nav.showDetails)
                     .aspectRatio(16 / 9, contentMode: .fit)
                     .overlay(alignment: .bottomTrailing) {
                         if wallpaper.hasAudio == true {
