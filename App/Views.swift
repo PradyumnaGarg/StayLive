@@ -293,11 +293,11 @@ struct RootView: View {
             }
             .frame(width: 560, height: 620)
         }
-        .overlay(alignment: .bottom) {
+        .overlay(alignment: .bottomTrailing) {
             if let toast = toasts.current {
                 ToastView(toast: toast)
-                    .padding(.bottom, 22)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .padding([.bottom, .trailing], 22)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
                     .id(toast.id)
             }
         }
@@ -1071,28 +1071,29 @@ struct QuickSettings: View {
                 statusCard("lock.fill", "Lock screen",
                            lockScreen.aerialName.map { "Replaces Apple's \($0) Aerial." } ?? "Choose any Aerial in System Settings → Wallpaper first.",
                            ok: lockScreen.aerialName != nil,
-                           action: lockScreen.installedID != nil && lockScreen.hasBackup ? ("Restore Apple's", { lockScreen.restoreOriginal() }) : nil)
+                           action: lockScreen.installedID != nil && lockScreen.hasBackup ? ("Restore", { lockScreen.restoreOriginal() }) : nil)
             }
         }
         .onAppear { screenSaver.refreshSelection(); lockScreen.refresh() }
     }
 
     private func card<Trailing: View>(_ symbol: String, _ title: String, _ detail: String, @ViewBuilder trailing: () -> Trailing) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             Image(systemName: symbol)
                 .font(.body.weight(.semibold))
                 .foregroundStyle(Color.accentColor)
-                .frame(width: 32, height: 32)
+                .frame(width: 34, height: 34)
                 .background(Color.accentColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.callout.weight(.semibold))
-                Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.callout.weight(.semibold)).lineLimit(1)
+                Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
-            Spacer(minLength: 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
             trailing()
+                .frame(minWidth: 44, alignment: .trailing)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 74, alignment: .topLeading)
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, minHeight: 84, maxHeight: 84, alignment: .leading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.cardStroke))
     }
@@ -1107,7 +1108,10 @@ struct QuickSettings: View {
                             action: (String, () -> Void)?) -> some View {
         card(symbol, title, detail) {
             if let action {
-                Button(action.0, action: action.1).controlSize(.small)
+                Button(action.0, action: action.1)
+                    .controlSize(.small)
+                    .fixedSize()
+                    .help(action.0 == "Restore" ? "Put Apple's original Aerial back on the lock screen" : action.0)
             } else {
                 Image(systemName: ok ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                     .foregroundStyle(ok ? .green : .orange)

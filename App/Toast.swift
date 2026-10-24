@@ -66,24 +66,30 @@ struct ToastView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 14) {
             Image(systemName: toast.symbol)
-                .font(.title3)
+                .font(.title2)
                 .foregroundStyle(tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(toast.title).font(.callout.weight(.semibold))
+                .frame(width: 30)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(toast.title).font(.body.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
                 if let message = toast.message {
-                    Text(message).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    Text(message).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             Button { ToastCenter.shared.dismiss() } label: {
-                Image(systemName: "xmark").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, height: 24)
+                    .background(.quaternary, in: Circle())
             }
             .buttonStyle(.plain)
+            .help("Dismiss")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(maxWidth: 420, alignment: .leading)
+        .padding(16)
+        .frame(width: 380, alignment: .leading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.white.opacity(0.12)))
         .shadow(color: .black.opacity(0.35), radius: 18, y: 8)
