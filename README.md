@@ -20,7 +20,8 @@ StayLive turns any video into a moving wallpaper. Drop a clip into the library a
 
 ## Features
 
-- Library with drag-and-drop import, hover previews and a carousel to browse your wallpapers
+- Built-in animated wallpapers generated on your Mac, plus your own videos via drag and drop
+- Home with a featured carousel and what's showing where; Library with hover previews and a details panel
 - One click to use a wallpaper everywhere, or pick desktop / lock screen / screen saver individually
 - Automatic lock-screen conversion to the format macOS expects, with progress and a time estimate
 - Conversions run in a queue in the background; already-converted videos switch instantly
@@ -37,8 +38,8 @@ StayLive turns any video into a moving wallpaper. Drop a clip into the library a
 
 ## Install
 
-1. Download the latest `StayLive-x.y.z.zip` from [Releases](../../releases) and unzip it.
-2. Move **StayLive.app** to your **Applications** folder.
+1. Download the latest `StayLive-x.y.z.dmg` from [Releases](../../releases) and open it.
+2. Drag **StayLive** onto the **Applications** folder in the window that appears.
 3. Open it. Because StayLive isn't notarized by Apple, macOS will block the first launch:
    open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to StayLive.
 
@@ -87,6 +88,7 @@ git clone <this repo>
 cd StayLive
 Scripts/build.sh          # builds build/StayLive.app
 Scripts/build.sh --zip    # also packages dist/StayLive-<version>.zip
+Scripts/make-dmg.sh       # packages dist/StayLive-<version>.dmg, the drag-to-Applications installer
 ```
 
 The bundle identifier can be changed with `STAYLIVE_BUNDLE_ID=com.example.StayLive Scripts/build.sh`.

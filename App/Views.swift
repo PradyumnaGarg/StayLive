@@ -165,22 +165,54 @@ struct WallpaperCard: View {
 }
 
 enum AppSection: String, Hashable, CaseIterable {
-    case home, library, settings
+    case home, library
 
     var title: String {
         switch self {
         case .home: return "Home"
         case .library: return "Library"
-        case .settings: return "Settings"
         }
     }
 
     var symbol: String {
         switch self {
-        case .home: return "house"
-        case .library: return "square.grid.2x2"
-        case .settings: return "gearshape"
+        case .home: return "house.fill"
+        case .library: return "square.grid.2x2.fill"
         }
+    }
+}
+
+struct NavigationPill: View {
+    @Binding var selection: AppSection
+    @Namespace private var highlight
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(AppSection.allCases, id: \.self) { section in
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { selection = section }
+                } label: {
+                    Label(section.title, systemImage: section.symbol)
+                        .font(.callout.weight(.semibold))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .foregroundStyle(selection == section ? Color.white : Color.primary)
+                        .background {
+                            if selection == section {
+                                Capsule().fill(Color.accentColor)
+                                    .matchedGeometryEffect(id: "pill", in: highlight)
+                                    .shadow(color: Color.accentColor.opacity(0.4), radius: 6, y: 2)
+                            }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.12)))
+        .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
     }
 }
 
@@ -191,12 +223,16 @@ enum LibraryFilter: String, CaseIterable {
 @MainActor
 final class AppNavigation: ObservableObject {
     static let shared = AppNavigation()
-    @Published var section: AppSection = .home
+    @Published var section: AppSection = .home {
+        didSet { if section != .library { showDetails = false } }
+    }
     @Published var selectedID: UUID?
     @Published var showDetails = false
+    @Published var showSettings = false
     @Published var filter: LibraryFilter = .all
 
     func open(_ w: Wallpaper) {
+        section = .library
         selectedID = w.id
         showDetails = true
     }
@@ -212,38 +248,42 @@ struct RootView: View {
     @State private var dropTargeted = false
 
     var body: some View {
-        NavigationSplitView {
-            List(AppSection.allCases, id: \.self, selection: Binding(get: { nav.section }, set: { if let s = $0 { nav.section = s } })) { section in
-                Label(section.title, systemImage: section.symbol)
-                    .badge(section == .library ? library.items.count : 0)
-            }
-            .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 220)
-        } detail: {
-            Group {
-                switch nav.section {
-                case .home: HomeView(importing: $importing)
-                case .library: LibraryPage(importing: $importing)
-                case .settings: SettingsView()
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(AmbientBackground(image: library.item(desktop.currentID).flatMap { library.thumbnail($0) }))
-            .inspector(isPresented: $nav.showDetails) {
-                if let w = library.item(nav.selectedID) {
-                    InspectorView(wallpaper: w)
-                        .inspectorColumnWidth(min: 300, ideal: 340, max: 420)
-                } else {
-                    ContentUnavailableView("No Selection", systemImage: "photo.on.rectangle",
-                                           description: Text("Select a wallpaper to see details."))
-                }
+        Group {
+            switch nav.section {
+            case .home: HomeView(importing: $importing)
+            case .library: LibraryPage(importing: $importing)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AmbientBackground(image: library.item(desktop.currentID).flatMap { library.thumbnail($0) }))
+        .toolbarBackground(.hidden, for: .windowToolbar)
+        .navigationTitle("")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .principal) {
+                NavigationPill(selection: $nav.section)
+            }
+            ToolbarItemGroup(placement: .primaryAction) {
                 Button { importing = true } label: { Label("Add Videos", systemImage: "plus") }
                     .help("Add videos to your library")
+                Button { nav.showSettings = true } label: { Label("Settings", systemImage: "gearshape") }
+                    .help("Settings")
             }
         }
+        .sheet(isPresented: $nav.showSettings) {
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Settings").font(.title2.bold())
+                    Spacer()
+                    Button("Done") { nav.showSettings = false }
+                        .keyboardShortcut(.defaultAction)
+                }
+                .padding([.horizontal, .top], 20)
+                SettingsView()
+            }
+            .frame(width: 560, height: 620)
+        }
+        .onAppear { NSApp.setActivationPolicy(.regular) }
+        .onDisappear { NSApp.setActivationPolicy(.accessory) }
         .overlay {
             if dropTargeted {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -549,6 +589,15 @@ struct LibraryPage: View {
             }
             .padding(28)
         }
+        .inspector(isPresented: $nav.showDetails) {
+            if let w = library.item(nav.selectedID) {
+                InspectorView(wallpaper: w)
+                    .inspectorColumnWidth(min: 300, ideal: 340, max: 420)
+            } else {
+                ContentUnavailableView("No Selection", systemImage: "photo.on.rectangle",
+                                       description: Text("Select a wallpaper to see details."))
+            }
+        }
     }
 
     private var emptyState: some View {
@@ -598,6 +647,19 @@ struct InspectorView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                HStack {
+                    Text("Details").font(.headline).foregroundStyle(.secondary)
+                    Spacer()
+                    Button { AppNavigation.shared.showDetails = false } label: {
+                        Image(systemName: "xmark")
+                            .font(.caption.weight(.bold))
+                            .frame(width: 26, height: 26)
+                            .background(.quaternary, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut(.escape, modifiers: [])
+                    .help("Close details")
+                }
                 LoopingPlayer(url: library.videoURL(wallpaper), muted: previewMuted)
                     .aspectRatio(16 / 9, contentMode: .fit)
                     .overlay(alignment: .bottomTrailing) {
@@ -831,7 +893,7 @@ struct MenuBarView: View {
                 }
                 Spacer()
                 Button {
-                    AppNavigation.shared.section = .settings
+                    AppNavigation.shared.showSettings = true
                     openWindow(id: "library")
                     NSApp.activate(ignoringOtherApps: true)
                 } label: { Image(systemName: "gearshape") }

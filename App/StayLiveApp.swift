@@ -26,7 +26,7 @@ struct StayLiveApp: App {
         .defaultSize(width: 1180, height: 760)
         .commands {
             CommandGroup(replacing: .appSettings) {
-                Button("Settings…") { nav.section = .settings }
+                Button("Settings…") { nav.showSettings = true }
                     .keyboardShortcut(",")
             }
         }
