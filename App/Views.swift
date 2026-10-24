@@ -42,13 +42,20 @@ final class LoopingPlayerNSView: NSView {
     func stop() { player.pause(); looper = nil; player.removeAllItems(); url = nil }
 
     func setMuted(_ muted: Bool) { player.isMuted = muted }
+
+    func setPaused(_ paused: Bool) {
+        guard url != nil else { return }
+        if paused, player.rate != 0 { player.pause() }
+        if !paused, player.rate == 0 { player.play() }
+    }
 }
 
 struct LoopingPlayer: NSViewRepresentable {
     let url: URL?
     var muted = true
+    var paused = false
     func makeNSView(context: Context) -> LoopingPlayerNSView { LoopingPlayerNSView() }
-    func updateNSView(_ view: LoopingPlayerNSView, context: Context) { view.setMuted(muted); view.play(url) }
+    func updateNSView(_ view: LoopingPlayerNSView, context: Context) { view.setMuted(muted); view.play(url); view.setPaused(paused) }
     static func dismantleNSView(_ view: LoopingPlayerNSView, coordinator: ()) { view.stop() }
 }
 
@@ -351,136 +358,146 @@ struct HomeView: View {
     @Binding var importing: Bool
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("StayLive").font(.system(size: 34, weight: .bold, design: .rounded))
-                    Text("Moving wallpapers for your desktop, lock screen and screen saver.")
-                        .foregroundStyle(.secondary)
-                }
-
-                if let style = builtIns.currentStyle {
-                    HStack(spacing: 12) {
-                        GradientRing(value: builtIns.progress)
-                        Text("Preparing built-in wallpaper “\(style.name)”…").font(.callout)
-                        Spacer()
+        GeometryReader { geo in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 26) {
+                    if library.featured.isEmpty {
+                        Color.clear.frame(height: 60)
+                    } else {
+                        FeaturedHero(items: library.featured)
+                            .frame(height: max(380, geo.size.height * 2 / 3 + geo.safeAreaInsets.top))
                     }
-                    .padding(14)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 22) {
+                        if let style = builtIns.currentStyle {
+                            HStack(spacing: 12) {
+                                GradientRing(value: builtIns.progress)
+                                Text("Preparing built-in wallpaper “\(style.name)”…").font(.callout)
+                                Spacer()
+                            }
+                            .padding(14)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+
+                        HStack(alignment: .firstTextBaseline) {
+                            SectionHeader(title: "Now Showing")
+                            Spacer()
+                            Button { importing = true } label: { Label("Add Videos", systemImage: "plus") }
+                                .buttonStyle(GlassButtonStyle())
+                                .fixedSize()
+                            Button { nav.section = .library } label: { Label("Browse Library", systemImage: "square.grid.2x2") }
+                                .buttonStyle(GlassButtonStyle())
+                                .fixedSize()
+                        }
+                        NowShowing()
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 28)
                 }
+            }
+            .ignoresSafeArea(edges: .top)
+        }
+    }
+}
 
-                if !library.featured.isEmpty {
-                    SectionHeader(title: "Featured", subtitle: "Hover to preview, click for details and sound.")
-                    FeaturedCarousel(items: library.featured)
-                        .padding(.horizontal, -28)
+struct FeaturedHero: View {
+    @EnvironmentObject private var library: LibraryStore
+    @EnvironmentObject private var nav: AppNavigation
+    @Environment(\.controlActiveState) private var activeState
+    let items: [Wallpaper]
+    @State private var index = 0
+    @State private var soundOn = false
+
+    private var current: Wallpaper? { items.isEmpty ? nil : items[min(index, items.count - 1)] }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            if let current {
+                ZStack {
+                    if let image = library.thumbnail(current) {
+                        Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+                    }
+                    LoopingPlayer(url: library.videoURL(current), muted: !soundOn || activeState == .inactive,
+                                  paused: activeState == .inactive)
                 }
+                .id(current.id)
+                .transition(.opacity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+            }
 
-                SectionHeader(title: "Now Showing")
-                NowShowing()
+            LinearGradient(stops: [.init(color: .black.opacity(0.35), location: 0),
+                                   .init(color: .clear, location: 0.22),
+                                   .init(color: .clear, location: 0.5),
+                                   .init(color: .black.opacity(0.75), location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+                .allowsHitTesting(false)
 
-                HStack(spacing: 12) {
-                    Button { importing = true } label: { Label("Add Your Own Videos", systemImage: "plus") }
+            if let current {
+                HStack(alignment: .bottom, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(current.isBuiltIn ? "FEATURED · BUILT-IN" : "FEATURED")
+                            .font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.7))
+                        Text(current.name)
+                            .font(.system(size: 40, weight: .bold, design: .rounded))
+                            .lineLimit(1)
+                        Text("\(current.resolutionLabel) · \(current.durationLabel)\(current.hasAudio == true ? " · Sound" : "")")
+                            .font(.callout).foregroundStyle(.white.opacity(0.75))
+                        Button { nav.open(current) } label: {
+                            Label("Apply", systemImage: "sparkles")
+                        }
                         .buttonStyle(GradientButtonStyle())
                         .fixedSize()
-                    Button { nav.section = .library } label: { Label("Browse Library", systemImage: "square.grid.2x2") }
-                        .buttonStyle(GlassButtonStyle())
-                        .fixedSize()
-                }
-            }
-            .padding(28)
-        }
-    }
-}
-
-struct FeaturedCarousel: View {
-    @EnvironmentObject private var nav: AppNavigation
-    let items: [Wallpaper]
-    @State private var focusedID: UUID?
-    @State private var height: CGFloat = 300
-
-    var body: some View {
-        GeometryReader { geo in
-            let cardWidth = min(geo.size.width * 0.5, 620)
-            let cardHeight = cardWidth * 9 / 16
-            ZStack {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 22) {
-                        ForEach(items) { w in
-                            FeaturedCard(wallpaper: w)
-                                .frame(width: cardWidth, height: cardHeight)
-                                .id(w.id)
-                                .scrollTransition(.interactive, axis: .horizontal) { content, phase in
-                                    content
-                                        .scaleEffect(phase.isIdentity ? 1 : 0.86)
-                                        .opacity(phase.isIdentity ? 1 : 0.6)
-                                        .rotation3DEffect(.degrees(phase.value * -12), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
-                                }
-                                .onTapGesture { nav.open(w) }
-                        }
+                        .padding(.top, 6)
+                        .help("Choose where to use this wallpaper")
                     }
-                    .scrollTargetLayout()
-                }
-                .scrollTargetBehavior(.viewAligned)
-                .scrollPosition(id: $focusedID, anchor: .center)
-                .contentMargins(.horizontal, (geo.size.width - cardWidth) / 2, for: .scrollContent)
-                .scrollClipDisabled()
-
-                HStack {
-                    arrow("chevron.left", -1).keyboardShortcut(.leftArrow, modifiers: [])
                     Spacer()
-                    arrow("chevron.right", 1).keyboardShortcut(.rightArrow, modifiers: [])
+                    controls(for: current)
                 }
-                .padding(.horizontal, max(8, (geo.size.width - cardWidth) / 2 - 60))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 32)
+                .padding(.bottom, 30)
             }
-            .frame(width: geo.size.width, height: cardHeight)
-            .onAppear { height = cardHeight; if focusedID == nil { focusedID = items.first?.id } }
-            .onChange(of: geo.size.width) { height = min(geo.size.width * 0.5, 620) * 9 / 16 }
         }
-        .frame(height: height)
+        .animation(.easeInOut(duration: 0.45), value: current?.id)
+        .clipped()
     }
 
-    private func arrow(_ symbol: String, _ offset: Int) -> some View {
-        Button {
-            guard !items.isEmpty else { return }
-            let index = items.firstIndex { $0.id == focusedID } ?? 0
-            let next = (index + offset + items.count) % items.count
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.9)) { focusedID = items[next].id }
-        } label: {
+    private func controls(for w: Wallpaper) -> some View {
+        HStack(spacing: 6) {
+            heroButton("chevron.left", "Previous") { step(-1) }
+                .keyboardShortcut(.leftArrow, modifiers: [])
+            Text("\(min(index, items.count - 1) + 1) / \(items.count)")
+                .font(.callout.monospacedDigit().weight(.medium))
+                .frame(minWidth: 52)
+            heroButton("chevron.right", "Next") { step(1) }
+                .keyboardShortcut(.rightArrow, modifiers: [])
+            Divider().frame(height: 22).overlay(.white.opacity(0.3)).padding(.horizontal, 4)
+            heroButton(soundOn ? "speaker.wave.2.fill" : "speaker.slash.fill", soundOn ? "Mute" : "Play sound") {
+                soundOn.toggle()
+            }
+            .disabled(w.hasAudio != true)
+            .opacity(w.hasAudio == true ? 1 : 0.4)
+        }
+        .padding(6)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.15)))
+    }
+
+    private func heroButton(_ symbol: String, _ help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             Image(systemName: symbol)
-                .font(.title3.weight(.semibold))
-                .frame(width: 40, height: 40)
-                .background(.ultraThinMaterial, in: Circle())
-                .overlay(Circle().strokeBorder(Theme.cardStroke))
+                .font(.body.weight(.semibold))
+                .frame(width: 36, height: 36)
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .disabled(items.count < 2)
+        .help(help)
     }
-}
 
-struct FeaturedCard: View {
-    let wallpaper: Wallpaper
-
-    var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            HoverPreview(wallpaper: wallpaper)
-            LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
-                .allowsHitTesting(false)
-            VStack(alignment: .leading, spacing: 3) {
-                if wallpaper.isBuiltIn {
-                    Text("BUILT-IN").font(.caption2.weight(.bold)).foregroundStyle(.white.opacity(0.7))
-                }
-                Text(wallpaper.name).font(.system(size: 22, weight: .bold, design: .rounded)).lineLimit(1)
-                Text("\(wallpaper.resolutionLabel) · \(wallpaper.durationLabel)\(wallpaper.hasAudio == true ? " · Sound" : "")")
-                    .font(.caption).foregroundStyle(.white.opacity(0.75))
-            }
-            .foregroundStyle(.white)
-            .padding(18)
-            .allowsHitTesting(false)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.cardStroke))
-        .shadow(color: .black.opacity(0.35), radius: 18, y: 10)
-        .contentShape(Rectangle())
+    private func step(_ offset: Int) {
+        guard !items.isEmpty else { return }
+        index = (min(index, items.count - 1) + offset + items.count) % items.count
     }
 }
 

@@ -62,7 +62,10 @@ final class LibraryStore: ObservableObject {
            let decoded = try? JSONDecoder().decode([Wallpaper].self, from: data) {
             items = decoded.filter { FileManager.default.fileExists(atPath: videoURL($0).path) }
         }
-        Task { await fillMissingAudioFlags() }
+        Task {
+            await fillMissingAudioFlags()
+            await refreshThumbnailsIfNeeded()
+        }
     }
 
     func videoURL(_ w: Wallpaper) -> URL { AppPaths.videos.appendingPathComponent(w.fileName) }
@@ -158,10 +161,38 @@ final class LibraryStore: ObservableObject {
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: 960, height: 540)
-        let time = CMTime(seconds: min(1, duration / 3), preferredTimescale: 600)
-        guard let cg = try? await generator.image(at: time).image else { return }
+        var best: (image: CGImage, score: Double)?
+        for fraction in [0.1, 0.25, 0.4, 0.55, 0.7] {
+            let time = CMTime(seconds: duration * fraction, preferredTimescale: 600)
+            guard let cg = try? await generator.image(at: time).image else { continue }
+            let score = Self.detailScore(cg)
+            if best == nil || score > best!.score { best = (cg, score) }
+        }
+        guard let cg = best?.image else { return }
         let rep = NSBitmapImageRep(cgImage: cg)
         try? rep.representation(using: .jpeg, properties: [.compressionFactor: 0.85])?.write(to: url)
+    }
+
+    private static func detailScore(_ image: CGImage) -> Double {
+        let w = 64, h = 36
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                  space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return 0 }
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+        guard let data = ctx.data?.assumingMemoryBound(to: UInt8.self) else { return 0 }
+        let pixels = (0..<(w * h)).map { Double(data[$0]) }
+        let mean = pixels.reduce(0, +) / Double(pixels.count)
+        return pixels.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Double(pixels.count)
+    }
+
+    private func refreshThumbnailsIfNeeded() async {
+        guard UserDefaults.standard.integer(forKey: "thumbnailVersion") < 2 else { return }
+        for w in items where !w.isBuiltIn {
+            let asset = AVURLAsset(url: videoURL(w))
+            await makeThumbnail(asset: asset, duration: w.duration, to: thumbnailURL(w))
+            thumbnailCache[w.id] = nil
+        }
+        UserDefaults.standard.set(2, forKey: "thumbnailVersion")
+        objectWillChange.send()
     }
 
     private func fillMissingAudioFlags() async {
