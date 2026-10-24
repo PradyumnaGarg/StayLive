@@ -339,6 +339,9 @@ final class LockScreenController: ObservableObject {
         }
         if convertingID == w.id || queue.contains(w.id) { return }
         queue.append(w.id)
+        ToastCenter.shared.show("Preparing \(w.name) for the lock screen",
+                                message: "This takes about \(Self.durationText(remainingSeconds(w))). Keep using StayLive; you'll be told when it's set.",
+                                symbol: "hourglass", style: .info)
         startNextConversion()
     }
 
@@ -383,12 +386,21 @@ final class LockScreenController: ObservableObject {
         library.setAerial(outName, for: id)
         convertingID = nil
         conversionStart = nil
-        if requestedID == id { install(id, from: outURL) }
+        if requestedID == id {
+            install(id, from: outURL)
+        } else if let w = library.item(id) {
+            ToastCenter.shared.show("\(w.name) is ready for the lock screen", message: "Apply it any time; it switches instantly.",
+                                    symbol: "lock.fill", notify: true)
+        }
         startNextConversion()
     }
 
     private func conversionFailed(_ id: UUID, error: Error) {
-        if case .cancelled? = error as? AerialEncoderError {} else { errorMessage = error.localizedDescription }
+        if case .cancelled? = error as? AerialEncoderError {} else {
+            errorMessage = error.localizedDescription
+            ToastCenter.shared.show("Lock screen conversion failed", message: error.localizedDescription,
+                                    symbol: "exclamationmark.triangle.fill", style: .error, notify: true)
+        }
         if requestedID == id { requestedID = nil }
         convertingID = nil
         conversionStart = nil
@@ -403,7 +415,15 @@ final class LockScreenController: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 if self.installingID == id { self.installingID = nil }
-                if case .failure(let e) = result { self.errorMessage = e.localizedDescription }
+                switch result {
+                case .failure(let e):
+                    self.errorMessage = e.localizedDescription
+                case .success:
+                    if let w = self.library.item(id) {
+                        ToastCenter.shared.show("Lock screen set to \(w.name)", message: "Lock your Mac to see it.",
+                                                symbol: "lock.fill", notify: true)
+                    }
+                }
                 if self.requestedID == id { self.requestedID = nil }
                 self.refresh()
             }

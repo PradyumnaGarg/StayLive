@@ -115,10 +115,33 @@ final class DesktopController: ObservableObject {
         }
     }
 
-    func setWallpaper(_ id: UUID?) {
+    @Published private(set) var previewID: UUID?
+
+    func setWallpaper(_ id: UUID?, announce: Bool = true) {
+        previewID = nil
         currentID = id
         UserDefaults.standard.set(id?.uuidString, forKey: "desktopWallpaperID")
-        let url = LibraryStore.shared.item(id).map { LibraryStore.shared.videoURL($0) }
+        loadWindows()
+        if announce, let w = LibraryStore.shared.item(id) {
+            ToastCenter.shared.show("Desktop set to \(w.name)", symbol: "desktopcomputer")
+        }
+    }
+
+    func startPreview(_ id: UUID) {
+        previewID = id
+        loadWindows()
+    }
+
+    func endPreview() {
+        guard previewID != nil else { return }
+        previewID = nil
+        loadWindows()
+        ToastCenter.shared.show("Preview ended", message: "Your desktop is back. Press Apply to keep a wallpaper.",
+                                symbol: "eye", style: .info)
+    }
+
+    private func loadWindows() {
+        let url = LibraryStore.shared.item(previewID ?? currentID).map { LibraryStore.shared.videoURL($0) }
         windows.forEach { $0.load(url) }
         applyAudio()
         updatePlayback()
@@ -141,7 +164,7 @@ final class DesktopController: ObservableObject {
         NotificationCenter.default.removeObserver(self, name: NSWindow.didChangeOcclusionStateNotification, object: nil)
         windows.forEach { $0.close() }
         windows = NSScreen.screens.map { WallpaperWindow(screen: $0) }
-        let url = LibraryStore.shared.item(currentID).map { LibraryStore.shared.videoURL($0) }
+        let url = LibraryStore.shared.item(previewID ?? currentID).map { LibraryStore.shared.videoURL($0) }
         for w in windows {
             w.load(url)
             w.orderBack(nil)

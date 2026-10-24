@@ -9,12 +9,14 @@ struct StayLiveApp: App {
     @StateObject private var screenSaver = ScreenSaverController.shared
     @StateObject private var nav = AppNavigation.shared
     @StateObject private var builtIns = BuiltInLibrary.shared
+    @StateObject private var toasts = ToastCenter.shared
 
     var body: some Scene {
         Window("StayLive", id: "library") {
             RootView()
                 .environmentObject(nav)
                 .environmentObject(builtIns)
+                .environmentObject(toasts)
                 .environmentObject(library)
                 .environmentObject(desktop)
                 .environmentObject(lockScreen)
@@ -50,6 +52,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DesktopController.shared.start()
         ScreenSaverController.shared.upgradeIfNeeded()
         BuiltInLibrary.shared.ensureInstalled()
+        let nc = NotificationCenter.default
+        nc.addObserver(forName: NSWindow.didDeminiaturizeNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { DesktopController.shared.endPreview() }
+        }
+        nc.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated {
+                ScreenSaverController.shared.refreshSelection()
+                LockScreenController.shared.refresh()
+            }
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
 

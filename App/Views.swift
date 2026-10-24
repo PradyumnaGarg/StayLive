@@ -249,6 +249,7 @@ final class AppNavigation: ObservableObject {
 }
 
 struct RootView: View {
+    @EnvironmentObject private var toasts: ToastCenter
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var desktop: DesktopController
     @EnvironmentObject private var lockScreen: LockScreenController
@@ -291,6 +292,14 @@ struct RootView: View {
                 SettingsView()
             }
             .frame(width: 560, height: 620)
+        }
+        .overlay(alignment: .bottom) {
+            if let toast = toasts.current {
+                ToastView(toast: toast)
+                    .padding(.bottom, 22)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .id(toast.id)
+            }
         }
         .onAppear { NSApp.setActivationPolicy(.regular) }
         .onDisappear { NSApp.setActivationPolicy(.accessory) }
@@ -335,9 +344,16 @@ struct RootView: View {
 
     private func add(_ urls: [URL]) {
         Task {
-            if let first = await library.importVideos(urls).first {
+            let added = await library.importVideos(urls)
+            if let first = added.first {
                 nav.section = .library
                 nav.open(first)
+                ToastCenter.shared.show(added.count == 1 ? "Added \(first.name)" : "Added \(added.count) videos",
+                                        message: "Use Apply to put it on your desktop, lock screen or screen saver.",
+                                        symbol: "plus.circle.fill")
+            } else {
+                ToastCenter.shared.show("Couldn't add that file", message: "Make sure it's a video macOS can play.",
+                                        symbol: "exclamationmark.triangle.fill", style: .error)
             }
         }
     }
@@ -360,6 +376,12 @@ struct HomeView: View {
     @EnvironmentObject private var nav: AppNavigation
     @Binding var importing: Bool
 
+    private func heroHeight(for size: CGSize) -> CGFloat {
+        let screen = NSScreen.main?.frame.size ?? CGSize(width: 16, height: 10)
+        let desktopShaped = size.width * screen.height / max(screen.width, 1)
+        return max(360, min(size.height - 70, max(size.height * 0.75, desktopShaped)))
+    }
+
     private var myVideos: [Wallpaper] { library.items.filter { !$0.isBuiltIn }.sorted { $0.addedAt > $1.addedAt } }
     private var builtInVideos: [Wallpaper] { library.items.filter(\.isBuiltIn) }
 
@@ -371,7 +393,7 @@ struct HomeView: View {
                         Color.clear.frame(height: 70)
                     } else {
                         FeaturedHero(items: library.featured)
-                            .frame(height: max(340, geo.size.height * 2 / 3))
+                            .frame(height: heroHeight(for: geo.size))
                     }
 
                     VStack(alignment: .leading, spacing: 32) {
@@ -400,6 +422,8 @@ struct HomeView: View {
                             }
                             .buttonStyle(.plain)
                         }
+
+                        QuickSettings()
 
                         Shelf(title: "Built-in", items: builtInVideos) {
                             if let style = builtIns.currentStyle {
@@ -500,7 +524,7 @@ struct FeaturedHero: View {
     @Environment(\.controlActiveState) private var activeState
     let items: [Wallpaper]
     @State private var index = 0
-    @State private var soundOn = false
+    @State private var soundOn = true
 
     private var current: Wallpaper? { items.isEmpty ? nil : items[min(index, items.count - 1)] }
 
@@ -543,13 +567,20 @@ struct FeaturedHero: View {
                             .minimumScaleFactor(0.6)
                         Text("\(current.resolutionLabel) · \(current.durationLabel)\(current.hasAudio == true ? " · Sound" : "")")
                             .font(.callout).foregroundStyle(.white.opacity(0.75))
-                        Button { nav.open(current) } label: {
-                            Label("Apply", systemImage: "sparkles")
+                        HStack(spacing: 10) {
+                            Button { nav.open(current) } label: {
+                                Label("Apply", systemImage: "sparkles")
+                            }
+                            .buttonStyle(GradientButtonStyle())
+                            .help("Choose where to use this wallpaper")
+                            Button { preview(current) } label: {
+                                Label("Preview on Desktop", systemImage: "eye")
+                            }
+                            .buttonStyle(GlassButtonStyle())
+                            .help("See it on your real desktop; click StayLive in the Dock to come back")
                         }
-                        .buttonStyle(GradientButtonStyle())
                         .fixedSize()
                         .padding(.top, 6)
-                        .help("Choose where to use this wallpaper")
                     }
                     .layoutPriority(1)
                     Spacer(minLength: 16)
@@ -595,6 +626,14 @@ struct FeaturedHero: View {
         }
         .buttonStyle(.plain)
         .help(help)
+    }
+
+    private func preview(_ w: Wallpaper) {
+        soundOn = false
+        DesktopController.shared.startPreview(w.id)
+        ToastCenter.shared.show("Previewing \(w.name) on your desktop", message: "Click StayLive in the Dock to come back.",
+                                symbol: "eye", style: .info)
+        NSApp.keyWindow?.miniaturize(nil)
     }
 
     private func step(_ offset: Int) {
@@ -1006,7 +1045,79 @@ struct MenuBarView: View {
     }
 }
 
+struct QuickSettings: View {
+    @EnvironmentObject private var desktop: DesktopController
+    @EnvironmentObject private var screenSaver: ScreenSaverController
+    @EnvironmentObject private var lockScreen: LockScreenController
+    @EnvironmentObject private var toasts: ToastCenter
+    @EnvironmentObject private var library: LibraryStore
+
+    private let columns = [GridItem(.adaptive(minimum: 250), spacing: 14)]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Quick Settings").font(.title2.bold())
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+                toggleCard("speaker.wave.2.fill", "Desktop sound", "Play the wallpaper's audio on your main display.",
+                           $desktop.soundEnabled)
+                toggleCard("battery.50", "Pause on battery", "Save power when you're unplugged.", $desktop.pauseOnBattery)
+                toggleCard("power", "Open at login", "Keep your desktop moving after a restart.", $desktop.launchAtLogin)
+                toggleCard("bell.badge.fill", "Notifications", "Get notified when conversions finish in the background.",
+                           $toasts.systemNotifications)
+                statusCard("sparkles.tv", "Screen saver",
+                           screenSaver.isSelectedInSystem ? "StayLive is your screen saver." : "StayLive isn't selected as your screen saver yet.",
+                           ok: screenSaver.isSelectedInSystem,
+                           action: screenSaver.isSelectedInSystem ? nil : ("Open Settings", { screenSaver.openSystemSettings() }))
+                statusCard("lock.fill", "Lock screen",
+                           lockScreen.aerialName.map { "Replaces Apple's \($0) Aerial." } ?? "Choose any Aerial in System Settings → Wallpaper first.",
+                           ok: lockScreen.aerialName != nil,
+                           action: lockScreen.installedID != nil && lockScreen.hasBackup ? ("Restore Apple's", { lockScreen.restoreOriginal() }) : nil)
+            }
+        }
+        .onAppear { screenSaver.refreshSelection(); lockScreen.refresh() }
+    }
+
+    private func card<Trailing: View>(_ symbol: String, _ title: String, _ detail: String, @ViewBuilder trailing: () -> Trailing) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: symbol)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 32, height: 32)
+                .background(Color.accentColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.callout.weight(.semibold))
+                Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            trailing()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 74, alignment: .topLeading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.cardStroke))
+    }
+
+    private func toggleCard(_ symbol: String, _ title: String, _ detail: String, _ binding: Binding<Bool>) -> some View {
+        card(symbol, title, detail) {
+            Toggle("", isOn: binding).toggleStyle(.switch).labelsHidden().controlSize(.small)
+        }
+    }
+
+    private func statusCard(_ symbol: String, _ title: String, _ detail: String, ok: Bool,
+                            action: (String, () -> Void)?) -> some View {
+        card(symbol, title, detail) {
+            if let action {
+                Button(action.0, action: action.1).controlSize(.small)
+            } else {
+                Image(systemName: ok ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .foregroundStyle(ok ? .green : .orange)
+            }
+        }
+    }
+}
+
 struct SettingsView: View {
+    @EnvironmentObject private var toasts: ToastCenter
     @EnvironmentObject private var desktop: DesktopController
     @EnvironmentObject private var lockScreen: LockScreenController
     @EnvironmentObject private var screenSaver: ScreenSaverController
@@ -1019,6 +1130,11 @@ struct SettingsView: View {
                     Text(error).font(.caption).foregroundStyle(.red)
                 }
                 Toggle("Pause on battery power", isOn: $desktop.pauseOnBattery)
+                Toggle("Notify me when background tasks finish", isOn: $toasts.systemNotifications)
+                if toasts.notificationsDenied {
+                    Text("Notifications are turned off for StayLive in System Settings → Notifications.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
             Section("Desktop Sound") {
                 Toggle("Play wallpaper sound", isOn: $desktop.soundEnabled)

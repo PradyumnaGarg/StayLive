@@ -211,7 +211,11 @@ final class BuiltInLibrary: ObservableObject {
 
     func ensureInstalled() {
         guard !UserDefaults.standard.bool(forKey: "didInstallBuiltIns") else { return }
-        restoreMissing { UserDefaults.standard.set(true, forKey: "didInstallBuiltIns") }
+        restoreMissing {
+            UserDefaults.standard.set(true, forKey: "didInstallBuiltIns")
+            ToastCenter.shared.show("Built-in wallpapers are ready", message: "Find them on Home and in your Library.",
+                                    symbol: "sparkles", notify: true)
+        }
     }
 
     func restoreMissing(completion: (() -> Void)? = nil) {

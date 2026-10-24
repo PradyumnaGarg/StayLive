@@ -19,9 +19,27 @@ final class ScreenSaverController: ObservableObject {
     private var embeddedURL: URL? { Bundle.main.resourceURL?.appendingPathComponent("StayLive.saver") }
     private var resources: URL { Self.installedURL.appendingPathComponent("Contents/Resources") }
 
+    @Published private(set) var isSelectedInSystem = false
+
     private init() {
         if let s = UserDefaults.standard.string(forKey: "screenSaverID") { currentID = UUID(uuidString: s) }
         isInstalled = FileManager.default.fileExists(atPath: Self.installedURL.path)
+        refreshSelection()
+    }
+
+    func refreshSelection() {
+        let url = AerialFiles.wallpaperRoot.appendingPathComponent("Store/Index.plist")
+        guard let data = try? Data(contentsOf: url),
+              let root = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              let idle = ((root["AllSpacesAndDisplays"] as? [String: Any])?["Idle"] as? [String: Any])?["Content"] as? [String: Any],
+              let choice = (idle["Choices"] as? [[String: Any]])?.first,
+              let config = choice["Configuration"] as? Data,
+              let text = String(data: config, encoding: .utf8) ?? (try? PropertyListSerialization.propertyList(from: config, format: nil))
+                  .map({ "\($0)" }) else {
+            isSelectedInSystem = false
+            return
+        }
+        isSelectedInSystem = (choice["Provider"] as? String) == "com.apple.wallpaper.choice.screen-saver" && text.contains("StayLive.saver")
     }
 
     func set(_ w: Wallpaper) {
@@ -37,6 +55,10 @@ final class ScreenSaverController: ObservableObject {
             currentID = w.id
             UserDefaults.standard.set(w.id.uuidString, forKey: "screenSaverID")
             try writeSettings(video: name)
+            refreshSelection()
+            ToastCenter.shared.show("Screen saver set to \(w.name)",
+                                    message: isSelectedInSystem ? nil : "Pick StayLive in System Settings → Screen Saver to use it.",
+                                    symbol: "sparkles.tv")
         } catch {
             errorMessage = error.localizedDescription
         }
