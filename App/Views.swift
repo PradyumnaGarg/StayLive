@@ -11,6 +11,7 @@ final class LoopingPlayerNSView: NSView {
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
+        layer?.masksToBounds = true
         playerLayer.player = player
         playerLayer.videoGravity = .resizeAspectFill
         layer?.addSublayer(playerLayer)
@@ -359,44 +360,40 @@ struct HomeView: View {
 
     var body: some View {
         GeometryReader { geo in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 26) {
-                    if library.featured.isEmpty {
-                        Color.clear.frame(height: 60)
-                    } else {
-                        FeaturedHero(items: library.featured)
-                            .frame(height: max(380, geo.size.height * 2 / 3 + geo.safeAreaInsets.top))
-                    }
-
-                    VStack(alignment: .leading, spacing: 22) {
-                        if let style = builtIns.currentStyle {
-                            HStack(spacing: 12) {
-                                GradientRing(value: builtIns.progress)
-                                Text("Preparing built-in wallpaper “\(style.name)”…").font(.callout)
-                                Spacer()
-                            }
-                            .padding(14)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        }
-
-                        HStack(alignment: .firstTextBaseline) {
-                            SectionHeader(title: "Now Showing")
-                            Spacer()
-                            Button { importing = true } label: { Label("Add Videos", systemImage: "plus") }
-                                .buttonStyle(GlassButtonStyle())
-                                .fixedSize()
-                            Button { nav.section = .library } label: { Label("Browse Library", systemImage: "square.grid.2x2") }
-                                .buttonStyle(GlassButtonStyle())
-                                .fixedSize()
-                        }
-                        NowShowing()
-                    }
-                    .padding(.horizontal, 28)
-                    .padding(.bottom, 28)
+            let heroHeight = library.featured.isEmpty ? 0 : max(340, geo.size.height * 2 / 3)
+            let lowerHeight = geo.size.height - heroHeight
+            VStack(spacing: 0) {
+                if heroHeight > 0 {
+                    FeaturedHero(items: library.featured)
+                        .frame(width: geo.size.width, height: heroHeight)
+                        .clipped()
                 }
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .center) {
+                        Text("Now Showing").font(.title3.bold())
+                        if let style = builtIns.currentStyle {
+                            HStack(spacing: 8) {
+                                GradientRing(value: builtIns.progress)
+                                Text("Preparing “\(style.name)”…").font(.caption).foregroundStyle(.secondary)
+                            }
+                            .padding(.leading, 12)
+                        }
+                        Spacer()
+                        Button { importing = true } label: { Label("Add Videos", systemImage: "plus") }
+                            .buttonStyle(GlassButtonStyle())
+                            .fixedSize()
+                        Button { nav.section = .library } label: { Label("Browse Library", systemImage: "square.grid.2x2") }
+                            .buttonStyle(GlassButtonStyle())
+                            .fixedSize()
+                    }
+                    NowShowing(thumbHeight: max(54, min(120, lowerHeight - 120)))
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, heroHeight > 0 ? 18 : 80)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-            .ignoresSafeArea(edges: .top)
         }
+        .ignoresSafeArea(edges: .top)
     }
 }
 
@@ -507,6 +504,7 @@ struct NowShowing: View {
     @EnvironmentObject private var lockScreen: LockScreenController
     @EnvironmentObject private var screenSaver: ScreenSaverController
     @EnvironmentObject private var nav: AppNavigation
+    var thumbHeight: CGFloat = 90
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
@@ -531,30 +529,28 @@ struct NowShowing: View {
 
     private func slot<Accessory: View>(title: String, symbol: String, wallpaper: Wallpaper?, fallback: String, detail: String?,
                                        @ViewBuilder accessory: () -> Accessory) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        HStack(alignment: .center, spacing: 12) {
             ZStack {
                 if let wallpaper {
                     HoverPreview(wallpaper: wallpaper)
                 } else {
-                    Theme.panel.overlay(Image(systemName: symbol).font(.largeTitle).foregroundStyle(.tertiary))
+                    Theme.panel.overlay(Image(systemName: symbol).font(.title2).foregroundStyle(.tertiary))
                 }
             }
-            .aspectRatio(16 / 9, contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.cardStroke))
+            .frame(width: thumbHeight * 16 / 9, height: thumbHeight)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Theme.cardStroke))
             .onTapGesture { if let wallpaper { nav.open(wallpaper) } else { nav.section = .library } }
 
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Label(title, systemImage: symbol).font(.caption).foregroundStyle(.secondary)
-                    Text(wallpaper?.name ?? fallback).font(.callout.weight(.semibold)).lineLimit(1)
-                    if let detail { Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
-                }
-                Spacer()
+            VStack(alignment: .leading, spacing: 3) {
+                Label(title, systemImage: symbol).font(.caption).foregroundStyle(.secondary)
+                Text(wallpaper?.name ?? fallback).font(.callout.weight(.semibold)).lineLimit(2)
+                if let detail { Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
                 accessory()
             }
+            Spacer(minLength: 0)
         }
-        .padding(12)
+        .padding(10)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.cardStroke))
         .frame(maxWidth: .infinity)
