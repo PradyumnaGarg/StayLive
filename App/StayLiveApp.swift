@@ -52,6 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DesktopController.shared.start()
         ScreenSaverController.shared.upgradeIfNeeded()
         BuiltInLibrary.shared.ensureInstalled()
+        LockScreenController.shared.migrateIfNeeded()
+        LockScreenController.shared.repairSelectionIfNeeded()
         let nc = NotificationCenter.default
         nc.addObserver(forName: NSWindow.didDeminiaturizeNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated { DesktopController.shared.endPreview() }

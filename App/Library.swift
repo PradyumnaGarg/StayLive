@@ -117,6 +117,7 @@ final class LibraryStore: ObservableObject {
         items.removeAll { $0.id == w.id }
         save()
         if DesktopController.shared.currentID == w.id { DesktopController.shared.setWallpaper(nil) }
+        LockScreenController.shared.wallpaperRemoved(w.id)
     }
 
     @discardableResult

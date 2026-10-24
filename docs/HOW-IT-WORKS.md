@@ -25,15 +25,30 @@ Sound, when enabled, plays from the main display's window only.
 
 When an **Aerial** is your wallpaper, the lock screen plays it from a video file that macOS downloaded into
 `~/Library/Application Support/com.apple.wallpaper/aerials/videos/<asset id>.mov`.
-If that file is replaced with another video in the *same format*, macOS plays the new video instead,
-including the smooth slow-down when you unlock.
+Which Aerials exist is described by a catalog, `aerials/manifest/entries.json`: categories, names,
+thumbnails and, for each asset, the URL its video came from.
 
-Two details make this work:
+macOS's Aerial extension reads two preferences in the `com.apple.wallpaper.aerial` domain:
+
+| Key | Effect |
+|---|---|
+| `AerialManifestForceLocal` (bool) | Skip the downloaded catalog |
+| `AerialManifestLocalPathOverride` (path) | Load this catalog file instead |
+
+StayLive writes its own catalog, `aerials/manifest/staylive-entries.json`: Apple's current list plus a
+**StayLive** category holding one asset per converted video, and points those two preferences at it.
+Your videos then show up in System Settings → Wallpaper like any other Aerial, and the lock screen plays
+them with the smooth slow-down when you unlock.
+
+Three details make this work:
 
 1. **Keep the download attributes.** macOS tags each Aerial file with `SourceURL` and `LastETag` extended
-   attributes. If they're missing or different, macOS assumes the file is stale and downloads Apple's video
-   again. StayLive copies both attributes onto the new file.
+   attributes, and only uses a file whose `SourceURL` matches the catalog's URL for that asset. Otherwise it
+   assumes the file is stale and tries to download it. StayLive gives each of its assets a
+   `https://staylive.local/…` URL and sets matching attributes on the file, so nothing is ever downloaded.
 2. **Match the format exactly.** The Aerial player only plays files that look like Apple's.
+3. **Follow Apple's list.** When macOS downloads a newer `entries.json`, StayLive rebuilds its catalog from
+   it, so Apple's new Aerials keep appearing.
 
 ### The format Apple's player expects
 
@@ -72,8 +87,20 @@ Apple silicon. Converted files are cached, so applying a video a second time is 
 
 ### Installation
 
-`LockScreenController.install` backs up the original (once), copies the converted video next to the
-Aerial, sets the attributes, swaps it into place and restarts `WallpaperAgent`.
+`AerialCatalog.sync` (in `App/AerialCatalog.swift`) copies each converted video to
+`aerials/videos/<wallpaper id>.mov` (an APFS clone, so it takes no extra space), sets the attributes,
+writes a thumbnail and the catalog, and sets the two preferences. `AerialCatalog.select` then makes the
+chosen asset your wallpaper by updating the Aerial choice in `Store/Index.plist`, the same file System
+Settings writes, and `WallpaperAgent` is restarted so it reloads.
+
+StayLive then checks the system log for the Aerial extension confirming it loaded StayLive's catalog.
+If it didn't, StayLive turns the catalog off again and falls back to the older method: back up Apple's
+selected Aerial video once, copy the converted video into its place with the same attributes, and restart
+`WallpaperAgent`.
+
+Removing a video from the library removes its Aerial. **Stop Using StayLive Aerials** deletes the two
+preferences, StayLive's catalog, videos and thumbnails, re-selects the Apple Aerial you had before, and
+restores any Apple video replaced by the fallback.
 Conversions run in a queue; only your most recent lock-screen choice gets installed.
 
 ## Screen saver
@@ -102,6 +129,7 @@ plays in the background, the screen saver:
 | `App/Library.swift` | Video library: import, metadata, thumbnails, storage |
 | `App/DesktopController.swift` | Desktop windows, playback rules, sound, launch at login |
 | `App/LockScreen.swift` | Lock-screen encoder, conversion queue, install and restore |
+| `App/AerialCatalog.swift` | StayLive's Aerial catalog, preferences and wallpaper selection |
 | `App/ScreenSaver.swift` | Installs and updates `StayLive.saver` |
 | `App/Views.swift` | SwiftUI interface |
 | `App/Theme.swift` | Colors, backgrounds and button styles |

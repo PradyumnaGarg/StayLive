@@ -276,6 +276,8 @@ final class LockScreenController: ObservableObject {
     @Published private(set) var installedID: UUID?
     @Published private(set) var aerialID: String?
     @Published private(set) var aerialName: String?
+    @Published private(set) var catalogEnabled = false
+    @Published private(set) var catalogCount = 0
 
     private var cancelToken = CancelToken()
     private let installQueue = DispatchQueue(label: "StayLive.install")
@@ -284,9 +286,99 @@ final class LockScreenController: ObservableObject {
     private init() { refresh() }
 
     func refresh() {
-        aerialID = AerialFiles.selectedAerialID()
+        catalogEnabled = AerialCatalog.isEnabled
+        aerialID = AerialCatalog.selectedDesktopAssetID() ?? AerialFiles.selectedAerialID()
         aerialName = aerialID.flatMap(AerialFiles.aerialName)
         installedID = aerialID.flatMap(AerialFiles.installedWallpaperID)
+        catalogCount = catalogEnabled ? catalogEntries().count : 0
+        mergeAppleListIfUpdated()
+    }
+
+    private func catalogEntries() -> [CatalogEntry] {
+        library.items.compactMap { w in
+            guard let video = library.aerialURL(w), FileManager.default.fileExists(atPath: video.path) else { return nil }
+            return CatalogEntry(id: w.id, name: w.name, video: video, thumbnail: library.thumbnailURL(w))
+        }
+    }
+
+    private func mergeAppleListIfUpdated() {
+        guard catalogEnabled,
+              let modified = try? FileManager.default.attributesOfItem(atPath: AerialCatalog.appleManifest.path)[.modificationDate] as? Date
+        else { return }
+        let synced = UserDefaults.standard.object(forKey: "catalogSyncedAppleList") as? Date ?? .distantPast
+        guard modified > synced else { return }
+        resyncCatalog(restart: false)
+    }
+
+    func resyncCatalog(restart: Bool) {
+        let entries = catalogEntries()
+        installQueue.async {
+            guard AerialCatalog.isEnabled else { return }
+            try? AerialCatalog.sync(entries)
+            UserDefaults.standard.set(Date(), forKey: "catalogSyncedAppleList")
+            if restart { AerialFiles.restartWallpaperAgent() }
+        }
+    }
+
+    func wallpaperRemoved(_ id: UUID) {
+        guard catalogEnabled else { return }
+        let entries = catalogEntries().filter { $0.id != id }
+        let wasSelected = aerialID == id.uuidString
+        installQueue.async { [weak self] in
+            try? AerialCatalog.sync(entries)
+            if wasSelected { try? AerialCatalog.select(assetID: AerialCatalog.previousAppleAssetID()) }
+            AerialFiles.restartWallpaperAgent()
+            Task { @MainActor in self?.refresh() }
+        }
+    }
+
+    func migrateIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: "didMigrateToAerialCatalog") else { return }
+        UserDefaults.standard.set(true, forKey: "didMigrateToAerialCatalog")
+        let entries = catalogEntries()
+        let selected = aerialID
+        let owner = selected.flatMap { AerialFiles.getXattr(AerialCatalog.videoURL($0), AerialFiles.markerKey) }
+            .flatMap { String(data: $0, encoding: .utf8) }
+        installQueue.async { [weak self] in
+            var changed = Self.restoreReplacedAppleVideos()
+            if AerialCatalog.isEnabled {
+                try? AerialCatalog.sync(entries)
+                if let selected, let owner, owner != selected, entries.contains(where: { $0.id.uuidString == owner }) {
+                    try? AerialCatalog.select(assetID: owner)
+                }
+                changed = true
+            }
+            if changed { AerialFiles.restartWallpaperAgent() }
+            Task { @MainActor in self?.refresh() }
+        }
+    }
+
+    func repairSelectionIfNeeded() {
+        guard catalogEnabled, let selected = aerialID else { return }
+        let known = AerialCatalog.appleAssetIDs().union(catalogEntries().map(\.id.uuidString))
+        guard !known.contains(selected) else { return }
+        installQueue.async { [weak self] in
+            try? AerialCatalog.select(assetID: AerialCatalog.previousAppleAssetID())
+            AerialFiles.restartWallpaperAgent()
+            Task { @MainActor in self?.refresh() }
+        }
+    }
+
+    nonisolated private static func restoreReplacedAppleVideos() -> Bool {
+        let fm = FileManager.default
+        var restored = false
+        for id in AerialCatalog.appleAssetIDs() {
+            let target = AerialFiles.videoURL(id)
+            let backup = AerialFiles.backupURL(id)
+            guard AerialFiles.getXattr(target, AerialFiles.markerKey) != nil, fm.fileExists(atPath: backup.path) else { continue }
+            let tmp = target.deletingLastPathComponent().appendingPathComponent(".staylive.tmp")
+            try? fm.removeItem(at: tmp)
+            guard (try? fm.copyItem(at: backup, to: tmp)) != nil,
+                  (try? fm.replaceItemAt(target, withItemAt: tmp)) != nil else { continue }
+            removexattr(target.path, AerialFiles.markerKey, 0)
+            restored = true
+        }
+        return restored
     }
 
     var hasBackup: Bool { aerialID.map { FileManager.default.fileExists(atPath: AerialFiles.backupURL($0).path) } ?? false }
@@ -328,9 +420,11 @@ final class LockScreenController: ObservableObject {
 
     func apply(_ w: Wallpaper) {
         refresh()
-        guard let aerialID else { errorMessage = LockScreenError.noAerialSelected.localizedDescription; return }
-        guard FileManager.default.fileExists(atPath: AerialFiles.videoURL(aerialID).path) else {
-            errorMessage = LockScreenError.aerialNotDownloaded.localizedDescription; return
+        if !AerialCatalog.isAvailable {
+            guard let aerialID else { errorMessage = LockScreenError.noAerialSelected.localizedDescription; return }
+            guard FileManager.default.fileExists(atPath: AerialFiles.videoURL(aerialID).path) else {
+                errorMessage = LockScreenError.aerialNotDownloaded.localizedDescription; return
+            }
         }
         requestedID = w.id
         if let cached = library.aerialURL(w), FileManager.default.fileExists(atPath: cached.path) {
@@ -384,6 +478,7 @@ final class LockScreenController: ObservableObject {
     private func conversionFinished(_ id: UUID, outName: String, outURL: URL, frames: Double) {
         if let start = conversionStart { measuredFPS = frames / max(Date().timeIntervalSince(start), 1) }
         library.setAerial(outName, for: id)
+        if catalogEnabled { resyncCatalog(restart: false) }
         convertingID = nil
         conversionStart = nil
         if requestedID == id {
@@ -408,19 +503,39 @@ final class LockScreenController: ObservableObject {
     }
 
     private func install(_ id: UUID, from url: URL) {
-        guard let aerialID else { return }
         installingID = id
+        let entries = catalogEntries()
+        let legacyTarget = aerialID
         installQueue.async { [weak self] in
-            let result = Result { try Self.install(aerial: url, wallpaperID: id, aerialID: aerialID) }
+            let result: Result<Bool, Error> = Result {
+                if AerialCatalog.isAvailable {
+                    try AerialCatalog.sync(entries)
+                    UserDefaults.standard.set(Date(), forKey: "catalogSyncedAppleList")
+                    try AerialCatalog.select(assetID: id.uuidString)
+                    let start = Date()
+                    AerialFiles.restartWallpaperAgent()
+                    if AerialCatalog.overrideWasHonored(since: start) { return true }
+                    AerialCatalog.disable()
+                    let fallback = AerialCatalog.previousAppleAssetID()
+                    try AerialCatalog.select(assetID: fallback)
+                    try Self.install(aerial: url, wallpaperID: id, aerialID: fallback)
+                    return false
+                }
+                guard let legacyTarget else { throw LockScreenError.noAerialSelected }
+                try Self.install(aerial: url, wallpaperID: id, aerialID: legacyTarget)
+                return false
+            }
             Task { @MainActor in
                 guard let self else { return }
                 if self.installingID == id { self.installingID = nil }
                 switch result {
                 case .failure(let e):
                     self.errorMessage = e.localizedDescription
-                case .success:
+                case .success(let viaCatalog):
                     if let w = self.library.item(id) {
-                        ToastCenter.shared.show("Lock screen set to \(w.name)", message: "Lock your Mac to see it.",
+                        ToastCenter.shared.show("Lock screen set to \(w.name)",
+                                                message: viaCatalog ? "Lock your Mac to see it. It's also under StayLive in System Settings → Wallpaper."
+                                                                    : "Lock your Mac to see it.",
                                                 symbol: "lock.fill", notify: true)
                     }
                 }
@@ -457,23 +572,22 @@ final class LockScreenController: ObservableObject {
     }
 
     func restoreOriginal() {
-        guard installingID == nil, let aerialID else { return }
+        guard installingID == nil else { return }
         requestedID = nil
-        let backup = AerialFiles.backupURL(aerialID)
-        let target = AerialFiles.videoURL(aerialID)
+        let selected = aerialID
+        let ours = Set(catalogEntries().map(\.id.uuidString))
         installQueue.async { [weak self] in
-            let fm = FileManager.default
-            let result = Result {
-                guard fm.fileExists(atPath: backup.path) else { throw LockScreenError.noBackup }
-                let tmp = target.deletingLastPathComponent().appendingPathComponent(".staylive.tmp")
-                try? fm.removeItem(at: tmp)
-                try fm.copyItem(at: backup, to: tmp)
-                _ = try fm.replaceItemAt(target, withItemAt: tmp)
-                AerialFiles.restartWallpaperAgent()
+            if AerialCatalog.isEnabled {
+                AerialCatalog.disable()
+                if let selected, ours.contains(selected) || !AerialCatalog.appleAssetIDs().contains(selected) {
+                    try? AerialCatalog.select(assetID: AerialCatalog.previousAppleAssetID())
+                }
             }
+            _ = Self.restoreReplacedAppleVideos()
+            AerialFiles.restartWallpaperAgent()
             Task { @MainActor in
-                if case .failure(let e) = result { self?.errorMessage = e.localizedDescription }
                 self?.refresh()
+                ToastCenter.shared.show("Lock screen is back to Apple's Aerials", symbol: "arrow.uturn.backward.circle.fill", style: .info)
             }
         }
     }

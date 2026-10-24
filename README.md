@@ -28,13 +28,13 @@ StayLive turns any video into a moving wallpaper. Drop a clip into the library a
 - Sound on the desktop and in the screen saver, from your main display only (no echo across monitors)
 - Menu bar controls: play/pause, quick switcher, volume
 - Pause on battery, launch at login
-- One-click restore of Apple's original lock-screen video
+- Your videos appear as their own **StayLive** category in System Settings → Wallpaper, next to Apple's Aerials
 
 ## Requirements
 
 - A Mac with Apple silicon
 - macOS 14 Sonoma or later (developed and tested on macOS 27)
-- For the lock screen: any **Aerial** chosen as your wallpaper in System Settings → Wallpaper, already downloaded
+- For the lock screen: macOS with Aerial wallpapers (Apple's Aerial list must have been downloaded once, which System Settings → Wallpaper does automatically)
 
 ## Install
 
@@ -58,7 +58,7 @@ It starts automatically when you log in, so your desktop keeps playing after a r
 The short version:
 
 - **Desktop:** a borderless, click-through window per display, placed at the desktop level behind your icons.
-- **Lock screen:** macOS plays its Aerial wallpapers from video files in your own Library folder. StayLive converts your video into the same format and puts it in place of the Aerial you selected, after backing up Apple's original. macOS then plays it exactly like an Aerial.
+- **Lock screen:** macOS plays its Aerial wallpapers from video files in your own Library folder, listed in a catalog file. StayLive converts your video into the same format, adds it to its own copy of that catalog under a **StayLive** category, and tells macOS to use that copy. Apple's Aerials are left untouched, and macOS plays yours exactly like an Aerial.
 - **Screen saver:** a standard macOS screen saver module (`StayLive.saver`) installed in `~/Library/Screen Savers`.
 
 The full technical write-up is in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
@@ -67,16 +67,14 @@ The full technical write-up is in [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
 
 Yes. StayLive only works with files in **your own user Library**, never system files.
 It needs no administrator password, no special permissions, no system extensions, and makes no network connections.
-Before touching an Aerial it keeps a backup of Apple's original, and **Settings → Restore Apple's Original** puts it back.
+It never modifies Apple's Aerial videos or catalog; it adds its own alongside them, and **Settings → Stop Using StayLive Aerials** removes them again.
 
 Exactly what it reads, writes and runs is listed in [docs/SAFETY.md](docs/SAFETY.md), together with how to remove everything.
 
 ## Limitations
 
 - **The lock screen is silent.** Apple's lock-screen player has no audio support, so sound is available on the desktop and in the screen saver only.
-- Lock-screen videos replace one Aerial at a time, the one selected in System Settings.
-- A macOS update or Apple's servers may restore the original Aerial. Just apply your video again.
-- The lock-screen trick relies on how current versions of macOS play Aerials. A future macOS release could change that.
+- The lock screen relies on how current versions of macOS load and play Aerials. A future macOS release could change that. If macOS ignores StayLive's catalog, StayLive falls back to temporarily swapping your video in place of the selected Aerial, with a backup of Apple's original.
 - Converted lock-screen videos are large (roughly 150–250 MB per minute of video).
 
 ## Build from source

@@ -929,8 +929,7 @@ struct InspectorView: View {
     }
 
     private var lockScreenNote: String {
-        let aerial = lockScreen.aerialName.map { "Apple's \($0) Aerial" } ?? "the selected Aerial"
-        return "The lock screen replaces \(aerial). Conversion to 4K · 240 fps runs once; after that applying it is instant."
+        return "Lock-screen videos appear as StayLive Aerials in System Settings → Wallpaper; Apple's Aerials stay untouched. Conversion to 4K · 240 fps runs once; after that applying it is instant."
     }
 
     private func infoRow(_ label: String, _ value: String) -> some View {
@@ -1069,9 +1068,11 @@ struct QuickSettings: View {
                            ok: screenSaver.isSelectedInSystem,
                            action: screenSaver.isSelectedInSystem ? nil : ("Open Settings", { screenSaver.openSystemSettings() }))
                 statusCard("lock.fill", "Lock screen",
-                           lockScreen.aerialName.map { "Replaces Apple's \($0) Aerial." } ?? "Choose any Aerial in System Settings → Wallpaper first.",
-                           ok: lockScreen.aerialName != nil,
-                           action: lockScreen.installedID != nil && lockScreen.hasBackup ? ("Restore", { lockScreen.restoreOriginal() }) : nil)
+                           lockScreen.catalogEnabled
+                               ? "\(lockScreen.catalogCount) StayLive Aerial\(lockScreen.catalogCount == 1 ? "" : "s") in System Settings → Wallpaper."
+                               : "Use Lock Screen on any wallpaper to add it as an Aerial.",
+                           ok: lockScreen.catalogEnabled,
+                           action: lockScreen.catalogEnabled || lockScreen.installedID != nil ? ("Turn Off", { lockScreen.restoreOriginal() }) : nil)
             }
         }
         .onAppear { screenSaver.refreshSelection(); lockScreen.refresh() }
@@ -1111,7 +1112,7 @@ struct QuickSettings: View {
                 Button(action.0, action: action.1)
                     .controlSize(.small)
                     .fixedSize()
-                    .help(action.0 == "Restore" ? "Put Apple's original Aerial back on the lock screen" : action.0)
+                    .help(action.0 == "Turn Off" ? "Remove StayLive's Aerials and go back to Apple's" : action.0)
             } else {
                 Image(systemName: ok ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                     .foregroundStyle(ok ? .green : .orange)
@@ -1155,10 +1156,10 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Lock Screen") {
-                LabeledContent("Replacing", value: lockScreen.aerialName.map { "Apple \($0)" } ?? "No Aerial selected")
-                Button("Restore Apple's Original") { lockScreen.restoreOriginal() }
-                    .disabled(!lockScreen.hasBackup || lockScreen.installedID == nil || lockScreen.installingID != nil)
-                Text("Choose which Aerial to replace in System Settings → Wallpaper.").font(.caption).foregroundStyle(.secondary)
+                LabeledContent("StayLive Aerials", value: lockScreen.catalogEnabled ? "\(lockScreen.catalogCount) in System Settings" : "Off")
+                Button("Stop Using StayLive Aerials") { lockScreen.restoreOriginal() }
+                    .disabled(!(lockScreen.catalogEnabled || lockScreen.installedID != nil) || lockScreen.installingID != nil)
+                Text("Your lock-screen videos are listed under StayLive in System Settings → Wallpaper.").font(.caption).foregroundStyle(.secondary)
             }
             Section("Built-in Wallpapers") {
                 Button("Restore Built-in Wallpapers") { BuiltInLibrary.shared.restoreMissing() }
