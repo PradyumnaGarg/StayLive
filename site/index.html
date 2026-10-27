@@ -198,6 +198,19 @@ h2 { font-size: clamp(32px, 4.6vw, 52px); line-height: 1.08; letter-spacing: -0.
 .sound-chip .bars b:nth-child(3) { animation-delay: -.6s; }
 @keyframes eq { 0%,100% { height: 3px; } 50% { height: 11px; } }
 
+
+/* screenshots */
+.shots { margin-top: 48px; }
+.shots-main { border-radius: 18px; overflow: hidden; border: 1px solid var(--stroke); background: #0a0a0a; box-shadow: 0 40px 120px rgba(0,0,0,0.6); }
+.shots-main img { width: 100%; height: auto; }
+.shots-tabs { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.shots-tabs button {
+  appearance: none; cursor: pointer; font: 600 14px Inter, system-ui, sans-serif; color: var(--muted);
+  background: rgba(255,255,255,0.05); border: 1px solid var(--stroke); padding: 9px 16px; border-radius: 999px;
+}
+.shots-tabs button[aria-pressed="true"] { color: #000; background: #fff; border-color: #fff; }
+.shots-caption { text-align: center; color: var(--muted); font-size: 15.5px; margin-top: 14px; min-height: 1.6em; }
+
 /* free & open */
 .free {
   margin-top: 0; padding: 64px 56px; border-radius: 32px; position: relative; overflow: hidden;
@@ -326,6 +339,7 @@ footer .links { display: flex; gap: 20px; flex-wrap: wrap; }
     <a class="brand" href="#"><img src="icon.png" alt="">StayLive</a>
     <div class="links">
       <a href="#where">Features</a>
+      <a href="#screenshots" class="hide-md" id="shotsLink" hidden>Screenshots</a>
       <a href="#free">Free &amp; open</a>
       <a href="#safe" class="hide-md">Safety</a>
       <a href="#install">Install</a>
@@ -417,6 +431,20 @@ footer .links { display: flex; gap: 20px; flex-wrap: wrap; }
           <p>A full-screen screen saver that plays your video with sound and fades out the instant you're back.</p>
         </div>
       </article>
+    </div>
+  </div>
+</section>
+
+<section id="screenshots" hidden>
+  <div class="wrap">
+    <div class="center reveal">
+      <div class="eyebrow">Take a look</div>
+      <h2>Simple, native, yours.</h2>
+    </div>
+    <div class="shots reveal">
+      <div class="shots-main"><img id="shotImg" alt=""></div>
+      <div class="shots-tabs" role="group" aria-label="Screenshots"></div>
+      <p class="shots-caption" id="shotCaption"></p>
     </div>
   </div>
 </section>
@@ -707,6 +735,34 @@ footer .links { display: flex; gap: 20px; flex-wrap: wrap; }
   const now = new Date();
   document.getElementById('lockTime').textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '');
   document.getElementById('lockDate').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+
+
+  const shots = [
+    ['home.png', 'Home', 'Home: a featured carousel, with what\'s showing on your desktop, lock screen and screen saver.'],
+    ['library.png', 'Library', 'Library: hover to preview, click for details and one-click apply.'],
+    ['lock-screen.png', 'Lock screen', 'Your videos appear as a StayLive category in System Settings → Wallpaper.'],
+    ['settings.png', 'Settings', 'Settings: sound, battery, launch at login and more.'],
+    ['menu-bar.png', 'Menu bar', 'Play, pause, switch and set the volume from the menu bar.'],
+  ];
+  const tabs = document.querySelector('.shots-tabs'), img = document.getElementById('shotImg'), cap = document.getElementById('shotCaption');
+  const available = [];
+  Promise.all(shots.map(sh => new Promise(res => { const i = new Image(); i.onload = () => res(sh); i.onerror = () => res(null); i.src = 'screenshots/' + sh[0]; })))
+    .then(list => {
+      list.filter(Boolean).forEach(sh => available.push(sh));
+      if (!available.length) return;
+      document.getElementById('screenshots').hidden = false;
+      document.getElementById('shotsLink').hidden = false;
+      const show = sh => {
+        img.src = 'screenshots/' + sh[0]; img.alt = sh[1] + ' screenshot'; cap.textContent = sh[2];
+        tabs.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.file === sh[0])));
+      };
+      if (available.length > 1) available.forEach(sh => {
+        const b = document.createElement('button'); b.textContent = sh[1]; b.dataset.file = sh[0];
+        b.addEventListener('click', () => show(sh)); tabs.appendChild(b);
+      });
+      show(available[0]);
+      document.querySelectorAll('#screenshots .reveal').forEach(el => el.classList.add('in'));
+    });
 
   const io = new IntersectionObserver(entries => entries.forEach(e => {
     if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
