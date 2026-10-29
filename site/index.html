@@ -3,593 +3,559 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>StayLive — Free live wallpapers for Mac</title>
+<title>StayLive — Live wallpapers for Mac. Free.</title>
 <meta name="description" content="StayLive turns any video into a live wallpaper for your Mac desktop, lock screen and screen saver. Free and open source.">
-<meta property="og:title" content="StayLive — Free live wallpapers for Mac">
+<meta property="og:title" content="StayLive — Live wallpapers for Mac. Free.">
 <meta property="og:description" content="Any video on your desktop, lock screen and screen saver. Free, open source, no account, no tracking.">
 <meta property="og:image" content="icon.png">
+<meta name="theme-color" content="#0e0e0c">
 <link rel="icon" href="icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
 :root {
-  --ink: #000000;
-  --slate: #2a0505;
-  --sage: #bc0202;
-  --cream: #f5f2f2;
-  --sand: #ff0000;
-  --bg: var(--ink);
-  --bg-2: #0a0000;
-  --panel: rgba(255,255,255,0.045);
-  --stroke: rgba(255,255,255,0.12);
-  --text: var(--cream);
-  --muted: #bdb4b4;
-  --faint: #8c7d7d;
-  --radius: 22px;
-  --max: 1160px;
+  --ink: #0e0e0c;
+  --bone: #eeeae2;
+  --accent: #ff5b1f;
+
+  --ink-2: #171715;
+  --line-dark: rgba(238,234,226,0.14);
+  --line-light: rgba(14,14,12,0.14);
+  --dim-dark: rgba(238,234,226,0.56);
+  --dim-light: rgba(14,14,12,0.58);
+  --sans: Geist, -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --serif: "Instrument Serif", "Times New Roman", serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --gutter: clamp(16px, 3.2vw, 48px);
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: hidden; }
 body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 400 17px/1.6 Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  margin: 0; background: var(--ink); color: var(--bone);
+  font: 400 17px/1.55 var(--sans); letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
 }
-a { color: inherit; }
-img, canvas { display: block; }
-.wrap { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+a { color: inherit; text-decoration: none; }
+canvas, img { display: block; }
+::selection { background: var(--accent); color: var(--ink); }
 
-.glow-bg {
-  position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background:
-    radial-gradient(900px 600px at 50% -10%, rgba(188,2,2,0.35), transparent 60%),
-    radial-gradient(900px 700px at 50% 120%, rgba(131,0,0,0.6), transparent 60%),
-    var(--ink);
-}
+.mono { font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; }
+.serif { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.01em; }
+.accent { color: var(--accent); }
+.dark { background: var(--ink); color: var(--bone); }
+.light { background: var(--bone); color: var(--ink); }
+.pad { padding-left: var(--gutter); padding-right: var(--gutter); }
+.w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.06em; margin-bottom: -0.06em; }
+.w > span { display: inline-block; will-change: transform; }
 
-/* nav */
-nav.top {
-  position: sticky; top: 14px; z-index: 50;
-  display: flex; justify-content: center; padding: 0 16px;
+/* progress + nav */
+.progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); transform-origin: 0 50%; transform: scaleX(0); z-index: 100; }
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 90;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  padding: 18px var(--gutter); color: var(--bone); transition: color .35s ease;
 }
-.pill {
-  display: flex; align-items: center; gap: 6px;
-  padding: 7px 8px 7px 14px;
-  background: rgba(131,0,0,0.55);
-  border: 1px solid var(--stroke);
-  border-radius: 999px;
-  backdrop-filter: blur(22px) saturate(1.6);
-  -webkit-backdrop-filter: blur(22px) saturate(1.6);
-  box-shadow: 0 10px 40px rgba(0,0,0,0.35);
-  max-width: 100%;
-}
-.brand { display: flex; align-items: center; gap: 9px; font-weight: 700; text-decoration: none; margin-right: 8px; white-space: nowrap; }
-.brand img { width: 26px; height: 26px; border-radius: 7px; }
-.pill .links { display: flex; gap: 2px; }
-.pill .links a {
-  text-decoration: none; color: var(--muted); font-size: 14.5px; font-weight: 500;
-  padding: 7px 12px; border-radius: 999px; transition: background .2s, color .2s;
-}
-.pill .links a:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+.nav.on-light { color: var(--ink); }
+.nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; letter-spacing: -0.02em; }
+.nav .brand img { width: 28px; height: 28px; border-radius: 7px; }
+.nav .links { display: flex; gap: 28px; }
+.nav .links a { position: relative; font-size: 14.5px; opacity: .8; transition: opacity .2s; }
+.nav .links a:hover { opacity: 1; }
+.nav .links a::after { content: ""; position: absolute; left: 0; right: 0; bottom: -3px; height: 1px; background: currentColor; transform: scaleX(0); transform-origin: right; transition: transform .35s ease; }
+.nav .links a:hover::after { transform: scaleX(1); transform-origin: left; }
+.nav .cta { justify-self: end; }
+
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
-  font-weight: 600; text-decoration: none; border-radius: 999px; white-space: nowrap;
-  transition: transform .15s ease, box-shadow .2s ease, background .2s;
+  display: inline-flex; align-items: center; gap: 12px; white-space: nowrap;
+  font: 500 15.5px var(--sans); letter-spacing: -0.01em;
+  padding: 14px 14px 14px 22px; border-radius: 999px; position: relative; overflow: hidden;
+  transition: transform .2s ease;
 }
-.btn:active { transform: scale(0.98); }
-.btn.primary {
-  background: var(--sand);
-  color: #fff; padding: 14px 26px; font-size: 16.5px;
-  box-shadow: 0 10px 34px rgba(255,0,0,0.35);
-}
-.btn.primary:hover { box-shadow: 0 14px 44px rgba(255,0,0,0.5); transform: translateY(-1px); }
-.btn.ghost {
-  background: rgba(255,255,255,0.07); border: 1px solid var(--stroke);
-  color: var(--text); padding: 13px 24px; font-size: 16.5px;
-}
-.btn.ghost:hover { background: rgba(255,255,255,0.12); }
-.btn.small { padding: 8px 16px; font-size: 14px; }
-.btn svg { width: 18px; height: 18px; flex: none; }
+.btn .dot { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; flex: none; transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+.btn .dot svg { width: 14px; height: 14px; }
+.btn:hover .dot { transform: rotate(-45deg); }
+.btn.down:hover .dot { transform: translateY(2px); }
+.btn.solid { background: var(--accent); color: var(--ink); }
+.btn.solid .dot { background: var(--ink); color: var(--accent); }
+.btn.line { border: 1px solid currentColor; }
+.btn.line .dot { background: currentColor; }
+.btn.line .dot svg { color: var(--ink); }
+.light .btn.line .dot svg { color: var(--bone); }
+.btn.small { padding: 8px 8px 8px 16px; font-size: 14px; gap: 10px; }
+.btn.small .dot { width: 24px; height: 24px; }
 
 /* hero */
-header.hero { padding: 72px 0 40px; text-align: center; }
-.badges { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
-.badge {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: 13.5px; font-weight: 600; color: var(--text);
-  padding: 6px 13px; border-radius: 999px;
-  background: rgba(255,255,255,0.06); border: 1px solid var(--stroke);
+.hero { min-height: 100svh; display: flex; flex-direction: column; justify-content: flex-end; padding-top: 110px; padding-bottom: 40px; position: relative; }
+.hero .meta { display: flex; justify-content: space-between; gap: 20px; color: var(--dim-dark); border-top: 1px solid var(--line-dark); padding-top: 14px; margin-top: 42px; }
+.hero h1 {
+  margin: 0; font-weight: 600; font-size: clamp(60px, 12.6vw, 232px); line-height: .86; letter-spacing: -0.065em;
 }
-.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sage); box-shadow: 0 0 10px var(--sage); }
-h1 {
-  font-size: clamp(42px, 7.2vw, 84px); line-height: 1.02; letter-spacing: -0.035em;
-  font-weight: 800; margin: 0 auto 22px; max-width: 920px;
-}
-.grad {
-  background: linear-gradient(100deg, #fff 10%, #ff2a2a 70%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
-.lede { font-size: clamp(18px, 2.2vw, 21px); color: var(--muted); max-width: 680px; margin: 0 auto 34px; }
-.cta { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
-.fine { margin-top: 16px; font-size: 14px; color: var(--faint); }
+.hero h1 .serif { font-size: 1.08em; letter-spacing: -0.035em; color: var(--accent); }
+.hero .row { display: grid; grid-template-columns: 1fr auto; gap: 40px; align-items: end; margin-top: 44px; }
+.hero .lede { max-width: 520px; font-size: clamp(17px, 1.5vw, 21px); line-height: 1.45; color: var(--dim-dark); margin: 0; }
+.hero .lede b { color: var(--bone); font-weight: 500; }
+.hero .ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+.tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+.tag { font: 500 12.5px var(--mono); text-transform: uppercase; letter-spacing: .03em; padding: 7px 12px; border: 1px solid var(--line-dark); border-radius: 999px; color: var(--dim-dark); }
+.tag.hot { background: var(--accent); border-color: var(--accent); color: var(--ink); }
 
-/* mac frame */
-.stage { margin: 64px auto 0; max-width: 1040px; position: relative; }
-.stage::before {
-  content: ""; position: absolute; inset: 8% 6% -6%; z-index: -1;
-  background: radial-gradient(closest-side, rgba(188,2,2,0.45), transparent);
-  filter: blur(50px);
+/* scroll stage */
+.stage { height: 260vh; position: relative; }
+.stage .sticky { position: sticky; top: 0; height: 100vh; overflow: hidden; display: grid; place-items: center; }
+.screen {
+  position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #000;
+  transform: scale(.64); border-radius: 36px; will-change: transform, border-radius;
+  box-shadow: 0 0 0 1px rgba(238,234,226,0.12);
 }
-.mac {
-  border-radius: 18px; overflow: hidden; position: relative;
-  border: 1px solid rgba(255,255,255,0.14);
-  box-shadow: 0 40px 120px rgba(0,0,0,0.6), 0 0 0 10px rgba(255,255,255,0.03);
-  aspect-ratio: 16 / 10; background: var(--ink);
-}
-.mac canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .menubar {
-  position: absolute; top: 0; left: 0; right: 0; height: 26px; z-index: 2;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 14px; font-size: 12.5px; font-weight: 600;
-  background: rgba(0,0,0,0.18); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  position: absolute; top: 0; left: 0; right: 0; height: 30px; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 18px;
+  font: 600 13px var(--sans); color: #fff; background: rgba(0,0,0,.16); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
 }
-.menubar .l, .menubar .r { display: flex; gap: 16px; align-items: center; }
-.menubar .l span:not(:first-child) { font-weight: 500; opacity: .85; }
-.menubar svg { width: 13px; height: 13px; }
-.dock {
-  position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 2;
-  display: flex; gap: 8px; padding: 7px; border-radius: 18px;
-  background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.18);
-  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+.menubar .l, .menubar .r { display: flex; gap: 18px; align-items: center; }
+.menubar .l span + span { font-weight: 450; opacity: .85; }
+.menubar svg { width: 14px; height: 14px; }
+.stage-caption {
+  position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: center; align-items: center;
+  text-align: center; color: #fff; pointer-events: none; padding: 0 var(--gutter);
 }
-.dock i { width: 40px; height: 40px; border-radius: 10px; display: block; }
-.dock i { background: linear-gradient(135deg, #e5e5e5, #8a8a8a); }
-.dock i:nth-child(even) { background: linear-gradient(135deg, #5a5a5a, #262626); }
-.dock i:nth-child(5) { background: url(icon.png) center/cover; }
+.stage-caption h2 { margin: 0; font-weight: 600; font-size: clamp(44px, 8.5vw, 150px); line-height: .9; letter-spacing: -0.06em; text-shadow: 0 10px 60px rgba(0,0,0,.35); }
+.stage-caption h2 .serif { letter-spacing: -0.03em; }
 .switcher {
-  position: absolute; right: 16px; top: 42px; z-index: 3;
-  display: flex; gap: 6px; padding: 6px; border-radius: 14px;
-  background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.14);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  position: absolute; z-index: 4; left: 50%; bottom: 34px; transform: translateX(-50%);
+  display: flex; gap: 4px; padding: 5px; border-radius: 999px;
+  background: rgba(14,14,12,.5); border: 1px solid rgba(255,255,255,.16);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
 }
 .switcher button {
-  appearance: none; border: 0; cursor: pointer; font: 600 12.5px Inter, system-ui, sans-serif;
-  color: var(--muted); background: transparent; padding: 7px 11px; border-radius: 9px;
+  appearance: none; border: 0; cursor: pointer; border-radius: 999px; padding: 9px 16px;
+  font: 500 13.5px var(--sans); color: rgba(255,255,255,.75); background: transparent; transition: background .25s, color .25s;
 }
-.switcher button[aria-pressed="true"] { color: var(--cream); background: rgba(255,255,255,0.14); }
+.switcher button[aria-pressed="true"] { background: var(--bone); color: var(--ink); }
 
-/* sections */
-section { padding: 110px 0 0; scroll-margin-top: -30px; }
-.eyebrow {
-  font-size: 13.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
-  color: #ff3b30; margin-bottom: 14px;
-}
-h2 { font-size: clamp(32px, 4.6vw, 52px); line-height: 1.08; letter-spacing: -0.03em; font-weight: 800; margin: 0 0 18px; }
-.sub { color: var(--muted); font-size: 19px; max-width: 640px; margin: 0; }
-.center { text-align: center; }
-.center .sub { margin: 0 auto; }
+/* marquee */
+.marquee { background: var(--accent); color: var(--ink); overflow: hidden; padding: 22px 0; border-top: 1px solid var(--ink); }
+.marquee .track { display: flex; width: max-content; will-change: transform; }
+.marquee .item { display: flex; align-items: center; gap: 34px; padding-right: 34px; font-weight: 600; font-size: clamp(34px, 5vw, 76px); line-height: 1; letter-spacing: -0.05em; white-space: nowrap; }
+.marquee .item .serif { font-weight: 400; }
+.marquee .star { width: .5em; height: .5em; flex: none; }
 
-.places { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 52px; }
-.card {
-  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025));
-  border: 1px solid var(--stroke); border-radius: var(--radius);
-  overflow: hidden; position: relative;
-}
-.place .shot { aspect-ratio: 16 / 10; position: relative; background: #000; overflow: hidden; }
-.place .shot canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.place .body { padding: 22px 24px 26px; }
-.place h3 { margin: 0 0 6px; font-size: 21px; letter-spacing: -0.01em; }
-.place p { margin: 0; color: var(--muted); font-size: 15.5px; }
-.lock-ui {
-  position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center;
-  padding-top: 9%; color: rgba(255,255,255,0.92); text-shadow: 0 2px 20px rgba(0,0,0,0.35);
-}
-.lock-ui .date { font-size: clamp(11px, 1.3vw, 14px); font-weight: 600; opacity: .9; }
-.lock-ui .time { font-size: clamp(40px, 6vw, 68px); font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
-.lock-ui .user { margin-top: auto; margin-bottom: 9%; display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; }
-.lock-ui .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #c7c7cc, #8e8e93); border: 1px solid rgba(255,255,255,0.4); }
-.sound-chip {
-  position: absolute; z-index: 2; right: 12px; bottom: 12px;
-  display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px;
-  font-size: 12px; font-weight: 600; background: rgba(0,0,0,0.38); border: 1px solid rgba(255,255,255,0.16);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-}
-.sound-chip .bars { display: flex; align-items: flex-end; gap: 2px; height: 11px; }
-.sound-chip .bars b { width: 2.5px; background: var(--cream); border-radius: 2px; animation: eq 1s ease-in-out infinite; }
-.sound-chip .bars b:nth-child(2) { animation-delay: -.3s; }
-.sound-chip .bars b:nth-child(3) { animation-delay: -.6s; }
-@keyframes eq { 0%,100% { height: 3px; } 50% { height: 11px; } }
+/* section heads */
+.sec { padding-top: clamp(90px, 13vw, 180px); padding-bottom: clamp(90px, 13vw, 180px); }
+.head { display: grid; grid-template-columns: 220px 1fr; gap: 24px; align-items: start; }
+.head .label { padding-top: 14px; }
+.light .label { color: var(--dim-light); }
+.dark .label { color: var(--dim-dark); }
+.label b { color: var(--accent); font-weight: 500; }
+h2.big { margin: 0; font-weight: 600; font-size: clamp(48px, 8.4vw, 148px); line-height: .9; letter-spacing: -0.06em; }
+h2.big .serif { letter-spacing: -0.03em; }
 
+/* horizontal places */
+.places { overflow: hidden; }
+.places .track { display: flex; gap: clamp(16px, 2vw, 28px); padding: 56px var(--gutter) 0; width: max-content; will-change: transform; }
+.panel { width: min(72vw, 1020px); flex: none; }
+@media (min-width: 901px) {
+  .places.sec { padding-top: 104px; padding-bottom: 48px; min-height: 100vh; }
+  .places h2.big { font-size: clamp(44px, 6.4vw, 120px); }
+  .places .track { padding-top: clamp(28px, 4vh, 56px); }
+  .panel { width: min(72vw, 1020px, calc((100vh - 500px) * 1.6)); min-width: 400px; }
+  .panel .info { margin-top: 16px; padding-top: 16px; }
+}
+.panel .shot { position: relative; aspect-ratio: 16 / 10; border-radius: 22px; overflow: hidden; background: #000; }
+.panel .shot canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.panel .info { display: grid; grid-template-columns: 60px 1fr; gap: 10px 20px; padding-top: 22px; border-top: 1px solid var(--line-light); margin-top: 22px; align-items: baseline; }
+.panel .num { font: 500 14px var(--mono); color: var(--accent); }
+.panel h3 { margin: 0; font-weight: 600; font-size: clamp(28px, 3vw, 46px); letter-spacing: -0.045em; line-height: 1; }
+.panel p { margin: 0; color: var(--dim-light); font-size: 16px; grid-column: 2; max-width: 620px; }
+.lock-ui { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; padding-top: 7%; color: rgba(255,255,255,.94); text-shadow: 0 2px 24px rgba(0,0,0,.35); }
+.lock-ui .date { font-size: clamp(12px, 1.3vw, 18px); font-weight: 600; }
+.lock-ui .time { font-size: clamp(56px, 8.5vw, 132px); font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+.lock-ui .user { margin-top: auto; margin-bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; }
+.lock-ui .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #c7c7cc, #8e8e93); border: 1px solid rgba(255,255,255,.4); }
+.chip {
+  position: absolute; z-index: 2; left: 18px; bottom: 18px; display: flex; align-items: center; gap: 8px;
+  padding: 8px 13px; border-radius: 999px; font: 500 12px var(--mono); text-transform: uppercase; color: #fff;
+  background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.chip .bars { display: flex; align-items: flex-end; gap: 2px; height: 12px; }
+.chip .bars b { width: 2.5px; background: var(--accent); border-radius: 2px; animation: eq 1s ease-in-out infinite; }
+.chip .bars b:nth-child(2) { animation-delay: -.3s; } .chip .bars b:nth-child(3) { animation-delay: -.6s; }
+@keyframes eq { 0%,100% { height: 3px; } 50% { height: 12px; } }
+
+/* manifesto */
+.manifesto p { margin: 0; font-weight: 500; font-size: clamp(32px, 4.6vw, 76px); line-height: 1.04; letter-spacing: -0.045em; max-width: 1400px; }
+.manifesto p .serif { font-weight: 400; letter-spacing: -0.02em; }
+.manifesto .word { display: inline-block; }
+
+/* price + stats */
+.price-row { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: end; margin-top: 50px; }
+.zero { font-weight: 600; font-size: clamp(160px, 30vw, 520px); line-height: .78; letter-spacing: -0.08em; margin: 0; }
+.zero .cur { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: .5em; letter-spacing: -0.02em; color: var(--accent); vertical-align: top; margin-right: .04em; }
+.price-row .side { padding-bottom: 2.4vw; }
+.price-row .side p { font-size: clamp(19px, 1.8vw, 26px); line-height: 1.35; letter-spacing: -0.02em; margin: 0 0 28px; max-width: 520px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line-light); margin-top: clamp(60px, 8vw, 110px); }
+.stat { padding: 26px 24px 8px 0; border-right: 1px solid var(--line-light); }
+.stat + .stat { padding-left: 24px; }
+.stat:last-child { border-right: 0; }
+.stat .n { font-weight: 600; font-size: clamp(56px, 7vw, 112px); line-height: 1; letter-spacing: -0.06em; }
+.stat .n .serif { color: var(--accent); }
+.stat p { margin: 12px 0 0; color: var(--dim-light); font-size: 15.5px; max-width: 220px; }
+
+/* features list */
+.list { margin-top: clamp(50px, 6vw, 90px); border-top: 1px solid var(--line-dark); }
+.feat {
+  position: relative; display: grid; grid-template-columns: 220px 1.1fr 1fr 40px; gap: 24px; align-items: center;
+  padding: 30px 0; border-bottom: 1px solid var(--line-dark); isolation: isolate; transition: color .35s ease;
+}
+.feat::before { content: ""; position: absolute; inset: 0 calc(-1 * var(--gutter)); background: var(--accent); z-index: -1; transform: scaleY(0); transform-origin: bottom; transition: transform .45s cubic-bezier(.2,.8,.2,1); }
+.feat:hover { color: var(--ink); }
+.feat:hover::before { transform: scaleY(1); }
+.feat .i { font: 500 14px var(--mono); color: var(--dim-dark); transition: color .35s; }
+.feat:hover .i, .feat:hover p { color: var(--ink); }
+.feat h3 { margin: 0; font-weight: 600; font-size: clamp(26px, 3vw, 46px); letter-spacing: -0.045em; line-height: 1; }
+.feat p { margin: 0; color: var(--dim-dark); font-size: 16px; transition: color .35s; }
+.feat .arr { justify-self: end; width: 22px; height: 22px; transition: transform .45s cubic-bezier(.2,.8,.2,1); }
+.feat:hover .arr { transform: rotate(-45deg); }
+
+/* open source */
+.oss { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(30px, 5vw, 80px); align-items: center; margin-top: 50px; }
+.oss p { font-size: clamp(19px, 1.8vw, 25px); line-height: 1.38; letter-spacing: -0.02em; margin: 0 0 28px; max-width: 560px; }
+.oss .ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+.term { background: var(--ink); color: var(--bone); border-radius: 22px; overflow: hidden; font: 400 14px/1.75 var(--mono); }
+.term .bar { display: flex; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--line-dark); color: var(--dim-dark); font-size: 12px; text-transform: uppercase; }
+.term .bar span:last-child { color: var(--accent); }
+.term pre { margin: 0; padding: 22px 22px 26px; overflow-x: auto; }
+.term .c { color: rgba(238,234,226,.45); } .term .k { color: var(--accent); }
 
 /* screenshots */
-.shots { margin-top: 48px; }
-.shots-main { border-radius: 18px; overflow: hidden; border: 1px solid var(--stroke); background: var(--bg-2); box-shadow: 0 40px 120px rgba(0,0,0,0.6); }
+.shots-main { margin-top: 50px; border-radius: 22px; overflow: hidden; border: 1px solid var(--line-dark); background: var(--ink-2); }
 .shots-main img { width: 100%; height: auto; }
-.shots-tabs { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
-.shots-tabs button {
-  appearance: none; cursor: pointer; font: 600 14px Inter, system-ui, sans-serif; color: var(--muted);
-  background: rgba(255,255,255,0.05); border: 1px solid var(--stroke); padding: 9px 16px; border-radius: 999px;
-}
-.shots-tabs button[aria-pressed="true"] { color: var(--ink); background: var(--cream); border-color: var(--cream); }
-.shots-caption { text-align: center; color: var(--muted); font-size: 15.5px; margin-top: 14px; min-height: 1.6em; }
-
-/* free & open */
-.free {
-  margin-top: 0; padding: 64px 56px; border-radius: 32px; position: relative; overflow: hidden;
-  background:
-    radial-gradient(600px 300px at 0% 0%, rgba(188,2,2,0.3), transparent 70%),
-    linear-gradient(160deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
-  border: 1px solid var(--stroke);
-  display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: center;
-}
-.price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 6px 0 18px; }
-.price .amt { font-size: clamp(64px, 9vw, 108px); font-weight: 800; letter-spacing: -0.05em; line-height: 1; }
-.price .per { color: var(--muted); font-size: 18px; }
-.price .amt .grad { padding-right: 4px; }
-.checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
-.checks li { display: flex; gap: 14px; align-items: flex-start; }
-.checks .ic {
-  flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
-  background: rgba(188,2,2,0.35); color: var(--cream); margin-top: 1px;
-}
-.checks .ic svg { width: 16px; height: 16px; }
-.checks strong { display: block; font-size: 16.5px; }
-.checks span { color: var(--muted); font-size: 15px; }
-
-.code {
-  background: #0a0000; border: 1px solid var(--stroke); border-radius: 16px; overflow: hidden;
-  font: 500 13.5px/1.7 "SF Mono", ui-monospace, Menlo, monospace;
-  box-shadow: 0 30px 80px rgba(0,0,0,0.45);
-}
-.code .bar { display: flex; align-items: center; gap: 7px; padding: 12px 14px; border-bottom: 1px solid var(--stroke); color: var(--faint); font-size: 12.5px; }
-.code .bar i { width: 11px; height: 11px; border-radius: 50%; display: block; }
-.code .bar i { background: var(--slate); }
-.code .bar span { margin-left: 8px; }
-.code pre { margin: 0; padding: 18px 20px; overflow-x: auto; color: var(--cream); }
-.code .c { color: var(--sage); } .code .k { color: var(--cream); font-weight: 700; } .code .s { color: #ff0000; } .code .f { color: var(--cream); text-decoration: underline; text-decoration-color: var(--sage); }
-
-/* features */
-.features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 52px; }
-.feature { padding: 26px; }
-.feature .icon {
-  width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; margin-bottom: 18px;
-  background: rgba(188,2,2,0.3);
-  border: 1px solid rgba(255,255,255,0.14);
-}
-.feature .icon svg { width: 22px; height: 22px; color: var(--cream); }
-.feature h3 { margin: 0 0 6px; font-size: 18px; }
-.feature p { margin: 0; color: var(--muted); font-size: 15px; }
-
-/* safe */
-.safe-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 48px; }
-.stat { padding: 26px; }
-.stat .n { font-size: 38px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; margin-bottom: 10px; }
-.stat p { margin: 0; color: var(--muted); font-size: 15px; }
+.shots-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.shots-tabs button { appearance: none; cursor: pointer; font: 500 14px var(--sans); color: var(--bone); background: transparent; border: 1px solid var(--line-dark); padding: 9px 16px; border-radius: 999px; }
+.shots-tabs button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+.shots-caption { color: var(--dim-dark); margin-top: 14px; min-height: 1.6em; }
 
 /* steps */
-.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 48px; counter-reset: s; }
-.step { padding: 28px; }
-.step::before {
-  counter-increment: s; content: counter(s);
-  display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
-  font-weight: 700; margin-bottom: 18px;
-  background: var(--cream); color: var(--ink);
-}
-.step h3 { margin: 0 0 6px; font-size: 18px; }
-.step p { margin: 0; color: var(--muted); font-size: 15px; }
-.req { margin-top: 22px; color: var(--faint); font-size: 14.5px; text-align: center; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 60px; border-top: 1px solid var(--line-light); }
+.step { padding: 24px 28px 0 0; }
+.step + .step { padding-left: 28px; border-left: 1px solid var(--line-light); }
+.step .n { font-weight: 600; font-size: clamp(90px, 11vw, 180px); line-height: .85; letter-spacing: -0.07em; color: var(--accent); }
+.step h3 { margin: 22px 0 8px; font-weight: 600; font-size: 26px; letter-spacing: -0.035em; }
+.step p { margin: 0; color: var(--dim-light); font-size: 16px; max-width: 340px; }
+.step code { font: 500 14px var(--mono); }
+.req { margin-top: 44px; color: var(--dim-light); }
 
 /* faq */
-.faq { max-width: 820px; margin: 44px auto 0; display: grid; gap: 12px; }
-details { padding: 0; }
-summary {
-  cursor: pointer; list-style: none; padding: 20px 24px; font-weight: 600; font-size: 17px;
-  display: flex; justify-content: space-between; align-items: center; gap: 16px;
-}
-summary::-webkit-details-marker { display: none; }
-summary::after { content: "+"; font-size: 22px; font-weight: 400; color: var(--muted); transition: transform .2s; }
-details[open] summary::after { transform: rotate(45deg); }
-details p { margin: 0; padding: 0 24px 22px; color: var(--muted); font-size: 15.5px; }
+.faq { margin-top: 50px; border-top: 1px solid var(--line-dark); }
+.faq details { border-bottom: 1px solid var(--line-dark); }
+.faq summary { cursor: pointer; list-style: none; display: grid; grid-template-columns: 220px 1fr 40px; gap: 24px; align-items: center; padding: 28px 0; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary .i { font: 500 14px var(--mono); color: var(--dim-dark); }
+.faq summary h3 { margin: 0; font-weight: 500; font-size: clamp(22px, 2.3vw, 34px); letter-spacing: -0.035em; line-height: 1.1; transition: color .3s; }
+.faq summary .pm { justify-self: end; width: 22px; height: 22px; position: relative; }
+.faq summary .pm::before, .faq summary .pm::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1.5px; background: currentColor; transition: transform .35s ease; }
+.faq summary .pm::after { transform: rotate(90deg); }
+.faq details[open] .pm::after { transform: rotate(0); }
+.faq details[open] summary h3 { color: var(--accent); }
+.faq .a { display: grid; grid-template-columns: 220px 1fr 40px; gap: 24px; padding: 0 0 30px; }
+.faq .a p { grid-column: 2; margin: 0; color: var(--dim-dark); font-size: 17.5px; max-width: 760px; }
+.faq .a a { color: var(--bone); text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 3px; }
 
-/* final */
-.final { text-align: center; padding: 120px 0 40px; }
-.final img { width: 96px; height: 96px; margin: 0 auto 26px; border-radius: 22px; box-shadow: 0 20px 60px rgba(255,255,255,0.12); }
-footer {
-  margin-top: 80px; border-top: 1px solid var(--stroke); padding: 30px 0 44px;
-  color: var(--faint); font-size: 14px;
-}
-footer .wrap { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
-footer a { color: var(--muted); text-decoration: none; }
-footer a:hover { color: var(--text); }
-footer .links { display: flex; gap: 20px; flex-wrap: wrap; }
+/* footer */
+footer { background: var(--accent); color: var(--ink); overflow: hidden; padding-top: clamp(80px, 10vw, 140px); }
+footer .top { display: grid; grid-template-columns: 1fr auto; gap: 30px; align-items: end; }
+footer h2 { margin: 0; font-weight: 600; font-size: clamp(44px, 6.6vw, 112px); line-height: .9; letter-spacing: -0.06em; }
+footer .ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+footer .btn.solid { background: var(--ink); color: var(--bone); }
+footer .btn.solid .dot { background: var(--accent); color: var(--ink); }
+footer .btn.line .dot svg { color: var(--accent); }
+footer .meta { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-top: 80px; padding-top: 16px; border-top: 1px solid rgba(14,14,12,.25); }
+footer .meta .links { display: flex; gap: 22px; flex-wrap: wrap; }
+footer .meta a:hover { text-decoration: underline; }
+.wordmark { font-weight: 700; font-size: 23.4vw; line-height: .74; letter-spacing: -0.075em; white-space: nowrap; margin: 4vw 0 -2.4vw -0.6vw; }
+.wordmark .ch { display: inline-block; will-change: transform; }
 
-.reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s ease; }
-.reveal.in { opacity: 1; transform: none; }
-
-@media (max-width: 980px) {
-  .places, .features, .steps { grid-template-columns: 1fr 1fr; }
-  .safe-grid { grid-template-columns: 1fr 1fr; }
-  .free { grid-template-columns: 1fr; padding: 44px 32px; gap: 40px; }
-  .pill .links a.hide-md { display: none; }
+@media (max-width: 900px) {
+  .nav { grid-template-columns: 1fr auto; }
+  .nav .links { display: none; }
+  .hero .row, .price-row, .oss, footer .top { grid-template-columns: 1fr; }
+  .head { grid-template-columns: 1fr; gap: 14px; }
+  .head .label { padding-top: 0; }
+  .places .track { flex-direction: column; width: auto; gap: 56px; }
+  .panel { width: 100%; }
+  .stats { grid-template-columns: 1fr 1fr; }
+  .stat:nth-child(2) { border-right: 0; }
+  .stat:nth-child(3) { padding-left: 0; }
+  .stat:nth-child(n+3) { border-top: 1px solid var(--line-light); }
+  .feat { grid-template-columns: 50px 1fr 30px; }
+  .feat p { grid-column: 2; grid-row: 2; }
+  .feat .arr { grid-column: 3; grid-row: 1; }
+  .steps { grid-template-columns: 1fr; }
+  .step, .step + .step { padding: 28px 0; border-left: 0; border-bottom: 1px solid var(--line-light); }
+  .faq summary, .faq .a { grid-template-columns: 40px 1fr 26px; gap: 14px; }
+  .stage { height: 200vh; }
+  .screen { border-radius: 40px; }
+  .menubar .l span:nth-child(n+4) { display: none; }
+  .switcher { bottom: 22px; }
+  .switcher button { padding: 7px 10px; font-size: 12px; }
 }
-@media (max-width: 640px) {
-  body { font-size: 16px; }
-  .wrap { padding: 0 16px; }
-  .places, .features, .steps, .safe-grid { grid-template-columns: 1fr; }
-  .pill .links { display: none; }
-  .pill { gap: 10px; }
-  header.hero { padding-top: 52px; }
-  section { padding-top: 84px; }
-  .free { padding: 34px 22px; border-radius: 24px; }
-  .menubar .l span:nth-child(n+4), .menubar .r .hide-sm { display: none; }
-  .dock { display: none; }
-  .switcher { top: 34px; right: 8px; }
-  .switcher button { padding: 5px 8px; font-size: 11px; }
+@media (max-width: 560px) {
+  .hero .meta span:nth-child(2) { display: none; }
+  .switcher { flex-wrap: wrap; justify-content: center; width: max-content; max-width: calc(100% - 24px); border-radius: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  .reveal { opacity: 1; transform: none; transition: none; }
-  .sound-chip .bars b { animation: none; height: 8px; }
+  .stage { height: auto; }
+  .stage .sticky { position: relative; height: 100vh; }
+  .screen { transform: none; border-radius: 0; }
+  .chip .bars b { animation: none; height: 8px; }
 }
 </style>
 </head>
 <body>
-<div class="glow-bg"></div>
+<div class="progress"></div>
 
-<nav class="top">
-  <div class="pill">
-    <a class="brand" href="#"><img src="icon.png" alt="">StayLive</a>
-    <div class="links">
-      <a href="#where">Features</a>
-      <a href="#screenshots" class="hide-md" id="shotsLink" hidden>Screenshots</a>
-      <a href="#free">Free &amp; open</a>
-      <a href="#safe" class="hide-md">Safety</a>
-      <a href="#install">Install</a>
-      <a href="#faq" class="hide-md">FAQ</a>
-    </div>
-    <a class="btn primary small" href="https://github.com/PradyumnaGarg/StayLive/releases/latest">Download</a>
+<nav class="nav">
+  <a class="brand" href="#top"><img src="icon.png" alt="">StayLive</a>
+  <div class="links">
+    <a href="#places">Features</a>
+    <a href="#free">Free</a>
+    <a href="#open-source">Open source</a>
+    <a href="#install">Install</a>
+    <a href="#faq">FAQ</a>
   </div>
+  <a class="cta btn solid small down" href="https://github.com/PradyumnaGarg/StayLive/releases/latest">Download
+    <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15M5 12l7 7 7-7"/></svg></span></a>
 </nav>
 
-<header class="hero">
-  <div class="wrap">
-    <div class="badges">
-      <span class="badge"><span class="dot"></span>Free forever</span>
-      <span class="badge">Open source · MIT</span>
-      <span class="badge">No account · No tracking</span>
+<main id="top">
+  <section class="hero dark pad" data-theme="dark">
+    <div class="hero-inner">
+      <div class="tags">
+        <span class="tag hot">Free forever</span>
+        <span class="tag">Open source · MIT</span>
+        <span class="tag">No account</span>
+        <span class="tag">No tracking</span>
+      </div>
+      <h1 data-split>Your Mac,<br>finally <span class="serif">alive.</span></h1>
+      <div class="row">
+        <p class="lede" data-fade>StayLive turns any video into a <b>live wallpaper</b> for your desktop, your lock screen and your screen saver, with sound. It costs nothing and never phones home.</p>
+        <div class="ctas" data-fade>
+          <a class="btn solid down" href="https://github.com/PradyumnaGarg/StayLive/releases/latest">Download for Mac
+            <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15M5 12l7 7 7-7"/></svg></span></a>
+          <a class="btn line" href="https://github.com/PradyumnaGarg/StayLive">Source
+            <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span></a>
+        </div>
+      </div>
+      <div class="meta mono" data-fade><span>(01) Live wallpapers for macOS</span><span>Apple silicon · macOS 14+</span><span>v1.0.0</span></div>
     </div>
-    <h1>Your Mac, <span class="grad">alive.</span></h1>
-    <p class="lede">StayLive turns any video into a live wallpaper on your desktop, your lock screen and your screen saver, with sound. It's free, it's open source, and it never phones home.</p>
-    <div class="cta">
-      <a class="btn primary" href="https://github.com/PradyumnaGarg/StayLive/releases/latest">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
-        Download for Mac
-      </a>
-      <a class="btn ghost" href="https://github.com/PradyumnaGarg/StayLive">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
-        View the source
-      </a>
-    </div>
-    <p class="fine">Version 1.0.0 · Apple silicon · macOS 14 Sonoma or later</p>
+  </section>
 
-    <div class="stage reveal">
-      <div class="mac">
-        <canvas id="hero" aria-label="Animated wallpaper preview"></canvas>
+  <section class="stage dark" data-theme="dark" aria-label="Live wallpaper preview">
+    <div class="sticky">
+      <div class="screen">
+        <canvas id="hero" aria-hidden="true"></canvas>
         <div class="menubar">
           <div class="l">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.37 12.6c-.02-2.36 1.93-3.5 2.02-3.55-1.1-1.61-2.81-1.83-3.42-1.85-1.45-.15-2.84.86-3.58.86-.74 0-1.87-.84-3.08-.82-1.58.02-3.04.92-3.85 2.34-1.65 2.86-.42 7.08 1.18 9.4.79 1.13 1.72 2.4 2.94 2.36 1.18-.05 1.63-.76 3.06-.76 1.42 0 1.83.76 3.08.73 1.27-.02 2.07-1.15 2.84-2.29.9-1.31 1.27-2.58 1.29-2.65-.03-.01-2.46-.95-2.48-3.77ZM14.04 5.67c.65-.79 1.09-1.88.97-2.97-.94.04-2.08.63-2.75 1.41-.6.7-1.13 1.81-.99 2.88 1.05.08 2.12-.53 2.77-1.32Z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.37 12.6c-.02-2.36 1.930-3.5 2.02-3.55-1.1-1.61-2.81-1.83-3.42-1.85-1.45-.15-2.84.86-3.58.86-.74 0-1.870-.84-3.080-.82-1.58.02-3.04.92-3.85 2.34-1.650 2.86-.42 7.08 1.18 9.4.79 1.13 1.72 2.4 2.94 2.36 1.18-.05 1.63-.76 3.06-.76 1.42 0 1.83.76 3.08.73 1.27-.02 2.07-1.15 2.84-2.29.9-1.31 1.27-2.58 1.29-2.65-.03-.01-2.46-.95-2.48-3.77ZM14.04 5.67c.65-.79 1.09-1.88.97-2.97-.94.04-2.08.63-2.75 1.41-.6.7-1.13 1.81-.99 2.88 1.05.08 2.12-.53 2.77-1.32Z"/></svg>
             <span>Finder</span><span>File</span><span>Edit</span><span>View</span><span>Window</span>
           </div>
           <div class="r">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            <span class="hide-sm">Mon 9:41 AM</span>
+            <span id="menuClock">Mon 9:41</span>
           </div>
         </div>
+        <div class="stage-caption"><h2>Any video.<br><span class="serif">Every</span> screen.</h2></div>
         <div class="switcher" role="group" aria-label="Try a built-in wallpaper">
           <button data-style="aurora" aria-pressed="true">Aurora</button>
           <button data-style="colorFlow" aria-pressed="false">Color Flow</button>
           <button data-style="starfield" aria-pressed="false">Starfield</button>
           <button data-style="duskWaves" aria-pressed="false">Dusk Waves</button>
         </div>
-        <div class="dock"><i></i><i></i><i></i><i></i><i></i><i></i></div>
       </div>
     </div>
-  </div>
-</header>
+  </section>
 
-<section id="where">
-  <div class="wrap">
-    <div class="center reveal">
-      <div class="eyebrow">One video, three places</div>
-      <h2>Desktop. Lock screen.<br>Screen saver.</h2>
-      <p class="sub">Drop in a clip and use it everywhere with one click, or pick each place on its own.</p>
+  <div class="marquee" aria-hidden="true">
+    <div class="track">
+      <div class="item"><span>Free forever</span><svg class="star" viewBox="0 0 24 24"><path fill="currentColor" d="M12 0c.6 6.4 5.6 11.4 12 12-6.4.6-11.4 5.6-12 12-.6-6.4-5.6-11.4-12-12C6.4 11.4 11.4 6.4 12 0Z"/></svg><span class="serif">Open source</span><svg class="star" viewBox="0 0 24 24"><path fill="currentColor" d="M12 0c.6 6.4 5.6 11.4 12 12-6.4.6-11.4 5.6-12 12-.6-6.4-5.6-11.4-12-12C6.4 11.4 11.4 6.4 12 0Z"/></svg><span>No account</span><svg class="star" viewBox="0 0 24 24"><path fill="currentColor" d="M12 0c.6 6.4 5.6 11.4 12 12-6.4.6-11.4 5.6-12 12-.6-6.4-5.6-11.4-12-12C6.4 11.4 11.4 6.4 12 0Z"/></svg><span class="serif">No tracking</span><svg class="star" viewBox="0 0 24 24"><path fill="currentColor" d="M12 0c.6 6.4 5.6 11.4 12 12-6.4.6-11.4 5.6-12 12-.6-6.4-5.6-11.4-12-12C6.4 11.4 11.4 6.4 12 0Z"/></svg><span>With sound</span><svg class="star" viewBox="0 0 24 24"><path fill="currentColor" d="M12 0c.6 6.4 5.6 11.4 12 12-6.4.6-11.4 5.6-12 12-.6-6.4-5.6-11.4-12-12C6.4 11.4 11.4 6.4 12 0Z"/></svg></div>
     </div>
-    <div class="places">
-      <article class="card place reveal">
+  </div>
+
+  <section id="places" class="places light sec" data-theme="light">
+    <div class="head pad">
+      <div class="label mono"><b>(02)</b> Where it plays</div>
+      <h2 class="big" data-split>One video.<br><span class="serif">Three</span> places.</h2>
+    </div>
+    <div class="track">
+      <article class="panel">
         <div class="shot"><canvas data-scene="colorFlow"></canvas>
-          <div class="sound-chip"><span class="bars"><b></b><b></b><b></b></span>Sound on</div>
-        </div>
-        <div class="body">
-          <h3>Desktop</h3>
-          <p>Plays behind your icons on every display, with optional sound from your main display. Pauses itself when the desktop is covered, the screen locks, or you're on battery.</p>
-        </div>
+          <div class="chip"><span class="bars"><b></b><b></b><b></b></span>Sound on</div></div>
+        <div class="info"><span class="num">01</span><h3>Desktop</h3>
+          <p>Plays behind your icons on every display, with optional sound from your main one. Pauses itself when the desktop is covered, the screen locks or you're on battery.</p></div>
       </article>
-      <article class="card place reveal">
+      <article class="panel">
         <div class="shot"><canvas data-scene="starfield"></canvas>
           <div class="lock-ui"><div class="date" id="lockDate">Monday, October 26</div><div class="time" id="lockTime">9:41</div>
-            <div class="user"><div class="avatar"></div>Touch ID or Enter Password</div></div>
-        </div>
-        <div class="body">
-          <h3>Lock screen</h3>
-          <p>Your videos show up as a <strong>StayLive</strong> category in System Settings → Wallpaper, and slow down smoothly when you unlock, just like Apple's Aerials.</p>
-        </div>
+            <div class="user"><div class="avatar"></div>Touch ID or Enter Password</div></div></div>
+        <div class="info"><span class="num">02</span><h3>Lock screen</h3>
+          <p>Your videos show up as a StayLive category in System Settings → Wallpaper, and slow down smoothly when you unlock, just like Apple's Aerials.</p></div>
       </article>
-      <article class="card place reveal">
+      <article class="panel">
         <div class="shot"><canvas data-scene="duskWaves"></canvas>
-          <div class="sound-chip"><span class="bars"><b></b><b></b><b></b></span>With sound</div>
-        </div>
-        <div class="body">
-          <h3>Screen saver</h3>
-          <p>A full-screen screen saver that plays your video with sound and fades out the instant you're back.</p>
-        </div>
+          <div class="chip"><span class="bars"><b></b><b></b><b></b></span>With sound</div></div>
+        <div class="info"><span class="num">03</span><h3>Screen saver</h3>
+          <p>A full-screen screen saver that plays your video with sound and fades out the instant you're back.</p></div>
       </article>
     </div>
-  </div>
-</section>
+  </section>
 
-<section id="screenshots" hidden>
-  <div class="wrap">
-    <div class="center reveal">
-      <div class="eyebrow">Take a look</div>
-      <h2>Simple, native, yours.</h2>
-    </div>
-    <div class="shots reveal">
-      <div class="shots-main"><img id="shotImg" alt=""></div>
-      <div class="shots-tabs" role="group" aria-label="Screenshots"></div>
-      <p class="shots-caption" id="shotCaption"></p>
-    </div>
-  </div>
-</section>
+  <section class="manifesto dark sec pad" data-theme="dark">
+    <div class="label mono" style="margin-bottom:40px"><b>(03)</b> Why we built it</div>
+    <p data-words>Most live-wallpaper apps for Mac want a monthly subscription. StayLive doesn't. It's <span class="serif accent">free,</span> it's <span class="serif accent">open source,</span> and it never sends a single byte off your Mac. Every line of code is public, so you never have to take our word for it.</p>
+  </section>
 
-<section id="free">
-  <div class="wrap">
-    <div class="free reveal">
-      <div>
-        <div class="eyebrow">Free &amp; open source</div>
-        <div class="price"><span class="amt"><span class="grad">$0</span></span><span class="per">today, tomorrow, forever</span></div>
-        <p class="sub" style="margin-bottom:30px">Most live-wallpaper apps for Mac ask for a subscription. StayLive doesn't, and every line of it is public, so you can see exactly what it does.</p>
-        <ul class="checks">
-          <li><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></span>
-            <div><strong>No subscription, no in-app purchases</strong><span>Every feature is included. There's nothing to unlock.</span></div></li>
-          <li><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></span>
-            <div><strong>No account, no ads, no analytics</strong><span>StayLive makes no network connections at all. Your videos never leave your Mac.</span></div></li>
-          <li><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></span>
-            <div><strong>MIT licensed</strong><span>Read it, build it yourself, fork it, improve it.</span></div></li>
-        </ul>
+  <section id="free" class="light sec pad" data-theme="light">
+    <div class="head">
+      <div class="label mono"><b>(04)</b> Pricing</div>
+      <h2 class="big" data-split>The whole app.<br>For <span class="serif">nothing.</span></h2>
+    </div>
+    <div class="price-row">
+      <p class="zero" data-zero><span class="cur">$</span>0</p>
+      <div class="side" data-fade>
+        <p>No trial. No subscription. No in-app purchases. Every feature is included from the first launch, today and forever.</p>
+        <a class="btn solid down" href="https://github.com/PradyumnaGarg/StayLive/releases/latest">Download for Mac
+          <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15M5 12l7 7 7-7"/></svg></span></a>
       </div>
-      <div class="code" aria-label="Build StayLive from source">
-        <div class="bar"><i></i><i></i><i></i><span>Terminal — build it yourself</span></div>
-<pre><span class="c"># Get the code</span>
-<span class="k">git</span> clone <span class="s">https://github.com/PradyumnaGarg/StayLive</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n">0</div><p>network connections. Your videos never leave your Mac.</p></div>
+      <div class="stat"><div class="n">0</div><p>admin passwords, system extensions or privacy prompts.</p></div>
+      <div class="stat"><div class="n" data-count="4">4</div><p>built-in animated wallpapers, generated on your Mac.</p></div>
+      <div class="stat"><div class="n"><span class="serif">1</span></div><p>click to undo everything StayLive adds.</p></div>
+    </div>
+  </section>
+
+  <section id="features" class="dark sec pad" data-theme="dark">
+    <div class="head">
+      <div class="label mono"><b>(05)</b> Details</div>
+      <h2 class="big" data-split>Small app.<br><span class="serif">Lots</span> of care.</h2>
+    </div>
+    <div class="list">
+      <div class="feat"><span class="i">01</span><h3>Drag in any video</h3><p>Drop clips onto the window. Hover to preview, click for details and one-click apply.</p><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+      <div class="feat"><span class="i">02</span><h3>Built-in wallpapers</h3><p>Aurora, Color Flow, Starfield and Dusk Waves, generated right on your Mac.</p><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+      <div class="feat"><span class="i">03</span><h3>Automatic conversion</h3><p>Lock-screen videos become the 4K · 240 fps format macOS expects, queued in the background with a time estimate.</p><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+      <div class="feat"><span class="i">04</span><h3>Sound, done right</h3><p>Audio from your main display only, so no echo across monitors, and it fades out the moment you're back.</p><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+      <div class="feat"><span class="i">05</span><h3>Easy on battery</h3><p>Playback pauses whenever nobody can see it, and optionally whenever you're unplugged.</p><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+      <div class="feat"><span class="i">06</span><h3>Lives in your menu bar</h3><p>Play, pause, switch and set the volume from the menu bar. Starts at login, survives a restart.</p><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    </div>
+  </section>
+
+  <section id="open-source" class="light sec pad" data-theme="light">
+    <div class="head">
+      <div class="label mono"><b>(06)</b> Open source</div>
+      <h2 class="big" data-split>Read it. Build it.<br><span class="serif">Make it yours.</span></h2>
+    </div>
+    <div class="oss">
+      <div data-fade>
+        <p>StayLive is MIT licensed. It only touches files in your own user Library, leaves Apple's Aerials alone, and lists every file it writes and every command it runs in plain English.</p>
+        <div class="ctas">
+          <a class="btn solid" href="https://github.com/PradyumnaGarg/StayLive">View on GitHub
+            <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span></a>
+          <a class="btn line" href="https://github.com/PradyumnaGarg/StayLive/blob/main/docs/SAFETY.md">Safety notes
+            <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span></a>
+        </div>
+      </div>
+      <div class="term" data-fade>
+        <div class="bar"><span>~/staylive</span><span>● zsh</span></div>
+<pre><span class="c"># get the code</span>
+<span class="k">git</span> clone https://github.com/PradyumnaGarg/StayLive
 <span class="k">cd</span> StayLive
 
-<span class="c"># Build the app (Xcode command line tools)</span>
-<span class="f">Scripts/build.sh</span>
+<span class="c"># build the app</span>
+<span class="k">Scripts/build.sh</span>
 
-<span class="c"># Package your own installer</span>
-<span class="f">Scripts/make-dmg.sh</span></pre>
+<span class="c"># package your own installer</span>
+<span class="k">Scripts/make-dmg.sh</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="screenshots" class="dark sec pad" data-theme="dark" hidden>
+    <div class="head">
+      <div class="label mono"><b>(07)</b> Screenshots</div>
+      <h2 class="big">Simple. <span class="serif">Native.</span></h2>
+    </div>
+    <div class="shots-main"><img id="shotImg" alt=""></div>
+    <div class="shots-tabs" role="group" aria-label="Screenshots"></div>
+    <p class="shots-caption" id="shotCaption"></p>
+  </section>
+
+  <section id="install" class="light sec pad" data-theme="light">
+    <div class="head">
+      <div class="label mono"><b>(08)</b> Install</div>
+      <h2 class="big" data-split>Up and running<br>in a <span class="serif">minute.</span></h2>
+    </div>
+    <div class="steps">
+      <div class="step" data-fade><div class="n">1</div><h3>Download</h3><p>Grab the latest <code>StayLive.dmg</code> from GitHub Releases and open it.</p></div>
+      <div class="step" data-fade><div class="n">2</div><h3>Drag to Applications</h3><p>Drop StayLive onto the Applications folder in the window that appears.</p></div>
+      <div class="step" data-fade><div class="n">3</div><h3>Open it</h3><p>StayLive isn't notarized, so the first time go to System Settings → Privacy &amp; Security and click <b>Open Anyway</b>.</p></div>
+    </div>
+    <p class="req mono">Requires Apple silicon and macOS 14 Sonoma or later.</p>
+  </section>
+
+  <section id="faq" class="dark sec pad" data-theme="dark">
+    <div class="head">
+      <div class="label mono"><b>(09)</b> FAQ</div>
+      <h2 class="big" data-split>Questions,<br><span class="serif">answered.</span></h2>
+    </div>
+    <div class="faq">
+      <details><summary><span class="i">01</span><h3>Is StayLive really free?</h3><span class="pm"></span></summary>
+        <div class="a"><p>Yes. No trial, no subscription, no in-app purchases, no ads. It's MIT-licensed open source, built as a personal project.</p></div></details>
+      <details><summary><span class="i">02</span><h3>Why does macOS warn me the first time?</h3><span class="pm"></span></summary>
+        <div class="a"><p>Notarization is a paid Apple program and StayLive is a free hobby project, so macOS asks you to confirm once in System Settings → Privacy &amp; Security. Prefer not to trust a download? Build it from source in two commands.</p></div></details>
+      <details><summary><span class="i">03</span><h3>Does the lock screen play sound?</h3><span class="pm"></span></summary>
+        <div class="a"><p>No. Apple's lock-screen player has no audio support. Sound works on the desktop and in the screen saver.</p></div></details>
+      <details><summary><span class="i">04</span><h3>Will it drain my battery?</h3><span class="pm"></span></summary>
+        <div class="a"><p>Videos are decoded by your Mac's media engine, and playback stops whenever the desktop isn't visible. You can also pause it automatically on battery.</p></div></details>
+      <details><summary><span class="i">05</span><h3>How does the lock screen work?</h3><span class="pm"></span></summary>
+        <div class="a"><p>macOS plays its Aerial wallpapers from video files in your Library. StayLive converts your video to the same format and adds it to its own copy of the Aerial list. <a href="https://github.com/PradyumnaGarg/StayLive/blob/main/docs/HOW-IT-WORKS.md">Read the technical write-up</a>.</p></div></details>
+      <details><summary><span class="i">06</span><h3>How do I remove it?</h3><span class="pm"></span></summary>
+        <div class="a"><p>In StayLive's Settings click Stop Using StayLive Aerials, pick another screen saver, then quit and delete the app. <a href="https://github.com/PradyumnaGarg/StayLive/blob/main/docs/SAFETY.md#removing-staylive-completely">Full steps</a>.</p></div></details>
+    </div>
+  </section>
+</main>
+
+<footer data-theme="light">
+  <div class="pad">
+    <div class="top">
+      <h2 data-split>Let your Mac<br><span class="serif">stay live.</span></h2>
+      <div class="ctas">
+        <a class="btn solid down" href="https://github.com/PradyumnaGarg/StayLive/releases/latest">Download for Mac
+          <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15M5 12l7 7 7-7"/></svg></span></a>
+        <a class="btn line" href="https://github.com/PradyumnaGarg/StayLive">Star on GitHub
+          <span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span></a>
+      </div>
+    </div>
+    <div class="meta mono">
+      <span>© 2026 Pradyumna Garg · MIT · Not affiliated with Apple</span>
+      <div class="links">
+        <a href="https://github.com/PradyumnaGarg/StayLive/releases">Releases</a>
+        <a href="https://github.com/PradyumnaGarg/StayLive/blob/main/docs/HOW-IT-WORKS.md">How it works</a>
+        <a href="https://github.com/PradyumnaGarg/StayLive/blob/main/docs/SAFETY.md">Safety</a>
+        <a href="https://github.com/PradyumnaGarg/StayLive/issues">Issues</a>
       </div>
     </div>
   </div>
-</section>
-
-<section id="features">
-  <div class="wrap">
-    <div class="center reveal">
-      <div class="eyebrow">Made for macOS</div>
-      <h2>Small app. Lots of care.</h2>
-    </div>
-    <div class="features">
-      <div class="card feature reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></div>
-        <h3>Built-in wallpapers</h3><p>Aurora, Color Flow, Starfield and Dusk Waves are generated right on your Mac, ready the moment you open the app.</p></div>
-      <div class="card feature reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div>
-        <h3>Drag in any video</h3><p>Drop clips onto the window to add them to your library, with hover previews and a details panel.</p></div>
-      <div class="card feature reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
-        <h3>Automatic conversion</h3><p>Lock-screen videos are converted to the 4K · 240 fps format macOS expects, in a background queue with a time estimate.</p></div>
-      <div class="card feature reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></div>
-        <h3>Sound, done right</h3><p>Audio plays from your main display only, so there's no echo across monitors, and fades out the moment the screen saver ends.</p></div>
-      <div class="card feature reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 10v4"/></svg></div>
-        <h3>Easy on battery</h3><p>Playback pauses when nobody can see it: covered desktop, locked or sleeping screen, and optionally on battery.</p></div>
-      <div class="card feature reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M8 13l3 3-3 3M13 19h4"/></svg></div>
-        <h3>Lives in your menu bar</h3><p>Play, pause, switch wallpapers and set the volume from the menu bar. Starts at login, so your desktop survives a restart.</p></div>
-    </div>
-  </div>
-</section>
-
-<section id="safe">
-  <div class="wrap">
-    <div class="center reveal">
-      <div class="eyebrow">Safe by design</div>
-      <h2>Nothing hidden. Nothing risky.</h2>
-      <p class="sub">StayLive only works with files in your own user Library. It leaves Apple's Aerials untouched, and one button undoes everything it adds.</p>
-    </div>
-    <div class="safe-grid">
-      <div class="card stat reveal"><div class="n grad">0</div><p>network connections</p></div>
-      <div class="card stat reveal"><div class="n grad">0</div><p>admin passwords or system extensions</p></div>
-      <div class="card stat reveal"><div class="n grad">0</div><p>privacy permissions requested</p></div>
-      <div class="card stat reveal"><div class="n grad">1</div><p>click to stop using StayLive Aerials</p></div>
-    </div>
-    <p class="req reveal">Every file it reads or writes and every command it runs is listed in <a href="https://github.com/PradyumnaGarg/StayLive/blob/main/docs/SAFETY.md">SAFETY.md</a>, with how to remove it completely.</p>
-  </div>
-</section>
-
-<section id="install">
-  <div class="wrap">
-    <div class="center reveal">
-      <div class="eyebrow">Get started</div>
-      <h2>Up and running in a minute.</h2>
-    </div>
-    <div class="steps">
-      <div class="card step reveal"><h3>Download</h3><p>Get the latest <code>StayLive.dmg</code> from GitHub Releases and open it.</p></div>
-      <div class="card step reveal"><h3>Drag to Applications</h3><p>Drop StayLive onto the Applications folder in the window that appears.</p></div>
-      <div class="card step reveal"><h3>Open it</h3><p>StayLive isn't notarized by Apple, so the first time go to System Settings → Privacy &amp; Security and click <strong>Open Anyway</strong>.</p></div>
-    </div>
-    <p class="req reveal">Requires a Mac with Apple silicon and macOS 14 Sonoma or later.</p>
-  </div>
-</section>
-
-<section id="faq">
-  <div class="wrap">
-    <div class="center reveal">
-      <div class="eyebrow">FAQ</div>
-      <h2>Questions, answered.</h2>
-    </div>
-    <div class="faq">
-      <details class="card reveal"><summary>Is StayLive really free?</summary>
-        <p>Yes. No trial, no subscription, no in-app purchases, no ads. It's MIT-licensed open source, built as a personal project.</p></details>
-      <details class="card reveal"><summary>Why does macOS warn me the first time I open it?</summary>
-        <p>Apple asks developers to pay for notarization. StayLive is a free hobby project and isn't notarized, so macOS asks you to confirm once in System Settings → Privacy &amp; Security. If you'd rather not trust a download, build it from the source in a couple of commands.</p></details>
-      <details class="card reveal"><summary>Does the lock screen play sound?</summary>
-        <p>No. Apple's lock-screen player has no audio support. Sound is available on the desktop and in the screen saver.</p></details>
-      <details class="card reveal"><summary>Will it drain my battery?</summary>
-        <p>Videos are decoded by your Mac's media engine, and playback stops whenever the desktop isn't visible. You can also pause it automatically on battery.</p></details>
-      <details class="card reveal"><summary>How do I remove it?</summary>
-        <p>In StayLive's Settings click <strong>Stop Using StayLive Aerials</strong>, pick another screen saver, then quit and delete the app. <a href="https://github.com/PradyumnaGarg/StayLive/blob/main/docs/SAFETY.md#removing-staylive-completely">Full steps</a>.</p></details>
-      <details class="card reveal"><summary>How does the lock screen trick work?</summary>
-        <p>macOS plays its Aerial wallpapers from video files in your Library. StayLive converts your video to the same format and adds it to its own copy of the Aerial list. <a href="https://github.com/PradyumnaGarg/StayLive/blob/main/docs/HOW-IT-WORKS.md">Read the technical write-up</a>.</p></details>
-    </div>
-  </div>
-</section>
-
-<div class="final">
-  <div class="wrap reveal">
-    <img src="icon.png" alt="StayLive icon">
-    <h2>Let your Mac <span class="grad">stay live.</span></h2>
-    <p class="sub" style="margin:0 auto 32px">Free. Open source. Yours to keep.</p>
-    <div class="cta">
-      <a class="btn primary" href="https://github.com/PradyumnaGarg/StayLive/releases/latest">Download for Mac</a>
-      <a class="btn ghost" href="https://github.com/PradyumnaGarg/StayLive">Star on GitHub</a>
-    </div>
-  </div>
-</div>
-
-<footer>
-  <div class="wrap">
-    <div>© 2026 Pradyumna Garg · MIT License · Not affiliated with Apple.</div>
-    <div class="links">
-      <a href="https://github.com/PradyumnaGarg/StayLive">GitHub</a>
-      <a href="https://github.com/PradyumnaGarg/StayLive/releases">Releases</a>
-      <a href="https://github.com/PradyumnaGarg/StayLive/blob/main/docs/HOW-IT-WORKS.md">How it works</a>
-      <a href="https://github.com/PradyumnaGarg/StayLive/blob/main/docs/SAFETY.md">Safety</a>
-      <a href="https://github.com/PradyumnaGarg/StayLive/issues">Report an issue</a>
-    </div>
-  </div>
+  <div class="wordmark" aria-hidden="true">StayLive</div>
 </footer>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
 <script>
 (() => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -609,10 +575,9 @@ footer .links { display: flex; gap: 20px; flex-wrap: wrap; }
     g.addColorStop(0, c); g.addColorStop(1, c.replace(/[\d.]+\)$/, '0)'));
     ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
   }
-
   const scenes = {
     aurora(ctx, w, h, t) {
-      ctx.fillStyle = vgrad(ctx, h, [[0, rgba(0.02, 0.06, 0.12)], [1, rgba(0.01, 0.02, 0.07)]].reverse());
+      ctx.fillStyle = vgrad(ctx, h, [[0, rgba(0.01, 0.02, 0.07)], [1, rgba(0.02, 0.06, 0.12)]]);
       ctx.fillRect(0, 0, w, h);
       const r = rng(7);
       for (let i = 0; i < 220; i++) {
@@ -705,11 +670,10 @@ footer .links { display: flex; gap: 20px; flex-wrap: wrap; }
   };
 
   const players = [];
-  function player(canvas, scene, speed = 0.35) {
-    const ctx = canvas.getContext('2d');
-    const p = { canvas, ctx, scene, speed, visible: false, w: 0, h: 0 };
+  function player(canvas, scene, maxDpr = 1.5) {
+    const p = { canvas, ctx: canvas.getContext('2d'), scene, visible: false, w: 0, h: 0 };
     const resize = () => {
-      const dpr = Math.min(devicePixelRatio || 1, 1.5);
+      const dpr = Math.min(devicePixelRatio || 1, maxDpr);
       p.w = canvas.width = Math.round(canvas.clientWidth * dpr);
       p.h = canvas.height = Math.round(canvas.clientHeight * dpr);
       draw(p, performance.now());
@@ -720,15 +684,13 @@ footer .links { display: flex; gap: 20px; flex-wrap: wrap; }
     return p;
   }
   function draw(p, now) {
-    if (!p.w) return;
-    scenes[p.scene](p.ctx, p.w, p.h, reduce ? 1.2 : now / 1000 * p.speed);
+    if (p.w) scenes[p.scene](p.ctx, p.w, p.h, reduce ? 1.2 : now / 1000 * 0.35);
   }
   function tick(now) {
     for (const p of players) if (p.visible) draw(p, now);
     if (!reduce) requestAnimationFrame(tick);
   }
-
-  const hero = player(document.getElementById('hero'), 'aurora');
+  const hero = player(document.getElementById('hero'), 'aurora', 1.25);
   document.querySelectorAll('canvas[data-scene]').forEach(c => player(c, c.dataset.scene));
   requestAnimationFrame(tick);
 
@@ -741,7 +703,8 @@ footer .links { display: flex; gap: 20px; flex-wrap: wrap; }
   const now = new Date();
   document.getElementById('lockTime').textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '');
   document.getElementById('lockDate').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
-
+  document.getElementById('menuClock').textContent = now.toLocaleDateString([], { weekday: 'short' }) + ' ' +
+    now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
   const shots = [
     ['home.png', 'Home', 'Home: a featured carousel, with what\'s showing on your desktop, lock screen and screen saver.'],
@@ -750,14 +713,12 @@ footer .links { display: flex; gap: 20px; flex-wrap: wrap; }
     ['settings.png', 'Settings', 'Settings: sound, battery, launch at login and more.'],
     ['menu-bar.png', 'Menu bar', 'Play, pause, switch and set the volume from the menu bar.'],
   ];
-  const tabs = document.querySelector('.shots-tabs'), img = document.getElementById('shotImg'), cap = document.getElementById('shotCaption');
-  const available = [];
   Promise.all(shots.map(sh => new Promise(res => { const i = new Image(); i.onload = () => res(sh); i.onerror = () => res(null); i.src = 'screenshots/' + sh[0]; })))
     .then(list => {
-      list.filter(Boolean).forEach(sh => available.push(sh));
+      const available = list.filter(Boolean);
       if (!available.length) return;
+      const tabs = document.querySelector('.shots-tabs'), img = document.getElementById('shotImg'), cap = document.getElementById('shotCaption');
       document.getElementById('screenshots').hidden = false;
-      document.getElementById('shotsLink').hidden = false;
       const show = sh => {
         img.src = 'screenshots/' + sh[0]; img.alt = sh[1] + ' screenshot'; cap.textContent = sh[2];
         tabs.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.file === sh[0])));
@@ -767,13 +728,144 @@ footer .links { display: flex; gap: 20px; flex-wrap: wrap; }
         b.addEventListener('click', () => show(sh)); tabs.appendChild(b);
       });
       show(available[0]);
-      document.querySelectorAll('#screenshots .reveal').forEach(el => el.classList.add('in'));
+      window.ScrollTrigger && ScrollTrigger.refresh();
     });
 
-  const io = new IntersectionObserver(entries => entries.forEach(e => {
-    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
-  }), { threshold: 0.12 });
-  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+  if (!window.gsap || !window.ScrollTrigger || reduce) return;
+  gsap.registerPlugin(ScrollTrigger);
+
+  let lenis;
+  if (window.Lenis) {
+    lenis = new Lenis({ lerp: 0.09 });
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add(t => lenis.raf(t * 1000));
+    gsap.ticker.lagSmoothing(0);
+  }
+  document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', e => {
+    const target = document.querySelector(a.getAttribute('href'));
+    if (!target) return;
+    e.preventDefault();
+    lenis ? lenis.scrollTo(target, { duration: 1.4 }) : target.scrollIntoView({ behavior: 'smooth' });
+  }));
+
+  function splitWords(el) {
+    const walk = node => {
+      [...node.childNodes].forEach(n => {
+        if (n.nodeType === 3) {
+          const frag = document.createDocumentFragment();
+          n.textContent.split(/(\s+)/).forEach(part => {
+            if (!part) return;
+            if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+            const w = document.createElement('span'); w.className = 'w';
+            const i = document.createElement('span'); i.textContent = part;
+            w.appendChild(i); frag.appendChild(w);
+          });
+          n.replaceWith(frag);
+        } else if (n.nodeType === 1 && n.tagName !== 'BR') walk(n);
+      });
+    };
+    walk(el);
+    return el.querySelectorAll('.w > span');
+  }
+
+  gsap.to('.progress', { scaleX: 1, ease: 'none', scrollTrigger: { start: 0, end: 'max', scrub: true } });
+
+
+  const heroWords = splitWords(document.querySelector('.hero h1'));
+  gsap.timeline({ defaults: { ease: 'expo.out' } })
+    .from(heroWords, { yPercent: 110, duration: 1.4, stagger: 0.08 })
+    .from('.hero .tag', { y: 16, opacity: 0, duration: .8, stagger: .06 }, 0.2)
+    .from('.hero [data-fade], .nav', { y: 24, opacity: 0, duration: 1, stagger: .1 }, 0.5);
+
+  gsap.to('.hero-inner', { yPercent: -18, opacity: 0.2, ease: 'none',
+    scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+
+  gsap.timeline({ scrollTrigger: { trigger: '.stage', start: 'top top', end: 'bottom bottom', scrub: 0.6 } })
+    .fromTo('.screen', { scale: innerWidth < 900 ? 0.82 : 0.64, borderRadius: 36 }, { scale: 1, borderRadius: 0, ease: 'power2.inOut', duration: 1 })
+    .to('.menubar', { opacity: 0, duration: .25 }, 0.7)
+    .from('.stage-caption h2', { yPercent: 40, opacity: 0, duration: .5, ease: 'power3.out' }, 0.45)
+    .to('.stage-caption h2', { yPercent: -30, opacity: 0, duration: .35, ease: 'power2.in' }, 1.05)
+    .to({}, { duration: .15 });
+
+  const mTrack = document.querySelector('.marquee .track');
+  mTrack.innerHTML += mTrack.innerHTML;
+  const loop = gsap.to(mTrack, { xPercent: -50, duration: 22, ease: 'none', repeat: -1 });
+  ScrollTrigger.create({
+    onUpdate: self => {
+      const boost = Math.max(1, Math.min(Math.abs(self.getVelocity()) / 300, 6));
+      gsap.timeline({ overwrite: true })
+        .to(loop, { timeScale: self.direction * boost, duration: .25 })
+        .to(loop, { timeScale: self.direction, duration: 1.2 });
+    },
+  });
+
+  const mm = gsap.matchMedia();
+  mm.add('(min-width: 901px)', () => {
+    const track = document.querySelector('.places .track');
+    const dist = () => track.scrollWidth - innerWidth;
+    gsap.to(track, { x: () => -dist(), ease: 'none',
+      scrollTrigger: { trigger: '.places', start: 'top top', end: () => '+=' + dist(), pin: true, scrub: 0.8, invalidateOnRefresh: true } });
+  });
+  mm.add('(max-width: 900px)', () => {
+    gsap.utils.toArray('.panel').forEach(p => gsap.from(p, { y: 60, opacity: 0, duration: 1.1, ease: 'expo.out', scrollTrigger: { trigger: p, start: 'top 88%' } }));
+  });
+
+  document.querySelectorAll('[data-split]').forEach(el => {
+    if (el.closest('.hero')) return;
+    gsap.from(splitWords(el), { yPercent: 110, duration: 1.2, ease: 'expo.out', stagger: .06,
+      scrollTrigger: { trigger: el, start: 'top 85%' } });
+  });
+
+  gsap.utils.toArray('[data-fade]').forEach(el => {
+    if (el.closest('.hero')) return;
+    gsap.from(el, { y: 50, opacity: 0, duration: 1.2, ease: 'expo.out', scrollTrigger: { trigger: el, start: 'top 88%' } });
+  });
+
+  const mWords = document.querySelector('[data-words]');
+  const words = [];
+  const wrapWords = node => [...node.childNodes].forEach(n => {
+    if (n.nodeType === 3) {
+      const frag = document.createDocumentFragment();
+      n.textContent.split(/(\s+)/).forEach(part => {
+        if (!part) return;
+        if (/^\s+$/.test(part)) return frag.appendChild(document.createTextNode(part));
+        const s = document.createElement('span'); s.className = 'word'; s.textContent = part; words.push(s); frag.appendChild(s);
+      });
+      n.replaceWith(frag);
+    } else if (n.nodeType === 1) wrapWords(n);
+  });
+  wrapWords(mWords);
+  gsap.fromTo(words, { opacity: 0.14 }, { opacity: 1, ease: 'none', stagger: 0.1,
+    scrollTrigger: { trigger: mWords, start: 'top 80%', end: 'bottom 40%', scrub: true } });
+
+  gsap.from('[data-zero]', { yPercent: 30, opacity: 0, ease: 'none',
+    scrollTrigger: { trigger: '[data-zero]', start: 'top 100%', end: 'top 45%', scrub: true } });
+
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const end = +el.dataset.count, o = { v: 0 };
+    el.textContent = '0';
+    gsap.to(o, { v: end, duration: 1.6, ease: 'power3.out', onUpdate: () => { el.textContent = Math.round(o.v); },
+      scrollTrigger: { trigger: el, start: 'top 85%' } });
+  });
+  gsap.from('.stat', { y: 40, opacity: 0, duration: 1, ease: 'expo.out', stagger: .08, scrollTrigger: { trigger: '.stats', start: 'top 85%' } });
+
+  ScrollTrigger.batch('.feat', { start: 'top 90%', onEnter: els => gsap.from(els, { y: 40, opacity: 0, duration: 1, ease: 'expo.out', stagger: .07 }) });
+  ScrollTrigger.batch('.faq details', { start: 'top 92%', onEnter: els => gsap.from(els, { y: 30, opacity: 0, duration: .9, ease: 'expo.out', stagger: .06 }) });
+
+  const wm = document.querySelector('.wordmark');
+  wm.innerHTML = [...wm.textContent].map(c => `<span class="ch">${c}</span>`).join('');
+  gsap.from('.wordmark .ch', { yPercent: 100, ease: 'power3.out', stagger: 0.04,
+    scrollTrigger: { trigger: 'footer', start: 'top 80%', end: 'bottom bottom', scrub: 0.6 } });
+
+  const nav = document.querySelector('.nav');
+  const themed = [...document.querySelectorAll('[data-theme]')];
+  const setNavTheme = () => {
+    const sec = themed.find(el => { const r = el.getBoundingClientRect(); return r.top <= 40 && r.bottom > 40; });
+    if (sec) nav.classList.toggle('on-light', sec.dataset.theme === 'light');
+  };
+  ScrollTrigger.create({ onUpdate: setNavTheme, onRefresh: setNavTheme });
+
+  addEventListener('load', () => ScrollTrigger.refresh());
 })();
 </script>
 </body>
