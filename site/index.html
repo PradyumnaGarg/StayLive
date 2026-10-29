@@ -92,17 +92,17 @@ canvas, img { display: block; }
 
 /* hero */
 .hero { min-height: 100svh; display: flex; flex-direction: column; justify-content: flex-end; padding-top: 110px; padding-bottom: 40px; position: relative; }
-.hero .meta { display: flex; justify-content: space-between; gap: 20px; color: var(--dim-dark); border-top: 1px solid var(--line-dark); padding-top: 14px; margin-top: 42px; }
+.hero .meta { display: flex; justify-content: space-between; gap: 20px; color: var(--dim-light); border-top: 1px solid var(--line-light); padding-top: 14px; margin-top: 42px; }
 .hero h1 {
   margin: 0; font-weight: 600; font-size: clamp(60px, 12.6vw, 232px); line-height: .86; letter-spacing: -0.065em;
 }
-.hero h1 .serif { font-size: 1.08em; letter-spacing: -0.035em; color: var(--accent); }
+.hero h1 .serif { font-size: 1.08em; letter-spacing: -0.035em; color: var(--accent-light); }
 .hero .row { display: grid; grid-template-columns: 1fr auto; gap: 40px; align-items: end; margin-top: 44px; }
-.hero .lede { max-width: 520px; font-size: clamp(17px, 1.5vw, 21px); line-height: 1.45; color: var(--dim-dark); margin: 0; }
-.hero .lede b { color: var(--bone); font-weight: 500; }
+.hero .lede { max-width: 520px; font-size: clamp(17px, 1.5vw, 21px); line-height: 1.45; color: var(--dim-light); margin: 0; }
+.hero .lede b { color: var(--ink); font-weight: 500; }
 .hero .ctas { display: flex; gap: 10px; flex-wrap: wrap; }
 .tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
-.tag { font: 500 12.5px var(--mono); text-transform: uppercase; letter-spacing: .03em; padding: 7px 12px; border: 1px solid var(--line-dark); border-radius: 999px; color: var(--dim-dark); }
+.tag { font: 500 12.5px var(--mono); text-transform: uppercase; letter-spacing: .03em; padding: 7px 12px; border: 1px solid var(--line-light); border-radius: 999px; color: var(--dim-light); }
 .tag.hot { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
 /* scroll stage */
@@ -111,7 +111,7 @@ canvas, img { display: block; }
 .screen {
   position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #000;
   transform: scale(.64); border-radius: 36px; will-change: transform, border-radius;
-  box-shadow: 0 0 0 1px var(--line-dark);
+  box-shadow: 0 0 0 1px var(--line-light), 0 50px 140px -20px color-mix(in srgb, var(--ink) 55%, transparent);
 }
 .screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .menubar {
@@ -355,7 +355,7 @@ footer .meta a:hover { text-decoration: underline; }
 </nav>
 
 <main id="top">
-  <section class="hero dark pad" data-theme="dark">
+  <section class="hero light pad" data-theme="light">
     <div class="hero-inner">
       <div class="tags">
         <span class="tag hot">Free forever</span>
@@ -377,7 +377,7 @@ footer .meta a:hover { text-decoration: underline; }
     </div>
   </section>
 
-  <section class="stage dark" data-theme="dark" aria-label="Live wallpaper preview">
+  <section class="stage light" data-theme="light" aria-label="Live wallpaper preview">
     <div class="sticky">
       <div class="screen">
         <canvas id="hero" aria-hidden="true"></canvas>
@@ -914,6 +914,8 @@ footer .meta a:hover { text-decoration: underline; }
   const nav = document.querySelector('.nav');
   const themed = [...document.querySelectorAll('[data-theme]')];
   const setNavTheme = () => {
+    const scr = document.querySelector('.screen').getBoundingClientRect();
+    if (scr.top <= 40 && scr.bottom > 40) return nav.classList.remove('on-light');
     const sec = themed.find(el => { const r = el.getBoundingClientRect(); return r.top <= 40 && r.bottom > 40; });
     if (sec) nav.classList.toggle('on-light', sec.dataset.theme === 'light');
   };
