@@ -1,0 +1,39 @@
+# StayLive
+
+> StayLive is a free, open-source (MIT) macOS app that turns any video into a live wallpaper for the Mac desktop, the lock screen and the screen saver, with sound. It needs no account, makes no network connections and has no subscription or in-app purchases.
+
+- Website: https://pradyumnagarg.github.io/StayLive/
+- Download (latest .dmg): https://github.com/PradyumnaGarg/StayLive/releases/latest
+- Source code: https://github.com/PradyumnaGarg/StayLive
+- Author: Pradyumna Garg (https://github.com/PradyumnaGarg)
+- Price: free
+- Platform: macOS 14 Sonoma or later, Apple silicon
+- Current version: 1.0.0
+
+## What it does
+
+- Desktop: plays any video behind the desktop icons on every display, with optional sound from the main display. Pauses when the desktop is covered, the screen is locked or asleep, and optionally on battery.
+- Lock screen: converts a video to the 4K, 240 fps HEVC format macOS uses for Aerial wallpapers and lists it under a "StayLive" category in System Settings → Wallpaper. It plays on the lock screen and slows down smoothly on unlock, like Apple's Aerials. The lock screen has no sound.
+- Screen saver: a full-screen screen saver that plays the video with sound and fades out when the user returns.
+- Built-in animated wallpapers (Aurora, Color Flow, Starfield, Dusk Waves) generated on the Mac.
+- Menu bar controls (play, pause, switch, volume) and launch at login.
+
+## How to install
+
+1. Download StayLive.dmg from the latest GitHub release and open it.
+2. Drag StayLive to the Applications folder.
+3. StayLive is not notarized by Apple, so on first launch open System Settings → Privacy & Security and click "Open Anyway".
+
+## Safety and privacy
+
+- Only reads and writes files in the user's own Library folder; needs no administrator password, system extension or privacy permission.
+- Does not modify Apple's Aerial videos; adds its own alongside them, and "Stop Using StayLive Aerials" removes everything it added.
+- Full list of files and commands: https://github.com/PradyumnaGarg/StayLive/blob/main/docs/SAFETY.md
+- Technical write-up: https://github.com/PradyumnaGarg/StayLive/blob/main/docs/HOW-IT-WORKS.md
+
+## Common questions
+
+- Is StayLive free? Yes, completely, and open source under the MIT license.
+- How do I set a video as my Mac wallpaper? Add the video to StayLive's library and choose Desktop, Lock Screen, Screen Saver or Use Everywhere.
+- Can a video play on the Mac lock screen? Yes, StayLive adds it as an Aerial wallpaper.
+- Does it work on Intel Macs? It is built and tested for Apple silicon.

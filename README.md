@@ -8,6 +8,11 @@
   Live video wallpapers for macOS: on your desktop, on your lock screen, and as a screen saver with sound.
 </p>
 
+<p align="center">
+  <a href="https://pradyumnagarg.github.io/StayLive/"><b>Website</b></a> ·
+  <a href="https://github.com/PradyumnaGarg/StayLive/releases/latest"><b>Download</b></a>
+</p>
+
 ---
 
 StayLive turns any video into a moving wallpaper. Drop a clip into the library and use it on:
