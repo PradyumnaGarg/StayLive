@@ -8,19 +8,19 @@
 <meta property="og:title" content="StayLive — Live wallpapers for Mac. Free.">
 <meta property="og:description" content="Any video on your desktop, lock screen and screen saver. Free, open source, no account, no tracking.">
 <meta property="og:image" content="icon.png">
-<meta name="theme-color" content="#0e0e0c">
+<meta name="theme-color" content="#0f1b15">
 <link rel="icon" href="icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
 :root {
-  --ink: #0e0e0c;
-  --bone: #eeeae2;
-  --accent: #ff5b1f;
+  --ink: #0f1b15;
+  --bone: #efe9dc;
+  --accent: #f2b53c;
 
   --on-accent: var(--ink);
-  --accent-light: var(--accent);
+  --accent-light: #a86f00;
 
   --ink-2: color-mix(in srgb, var(--ink) 92%, var(--bone));
   --line-dark: color-mix(in srgb, var(--bone) 14%, transparent);
@@ -318,24 +318,6 @@ footer .meta a:hover { text-decoration: underline; }
   .chip .bars b { animation: none; height: 8px; }
 }
 
-/* theme picker */
-.themes {
-  position: fixed; left: 16px; bottom: 16px; z-index: 95; display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px 8px 14px; border-radius: 999px; background: rgba(20,20,20,.72); color: #fff;
-  border: 1px solid rgba(255,255,255,.14); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-  font: 500 12px var(--mono); text-transform: uppercase; letter-spacing: .03em;
-}
-.themes .name { min-width: 64px; }
-.themes .sw { display: flex; gap: 6px; }
-.themes button {
-  appearance: none; cursor: pointer; width: 26px; height: 26px; border-radius: 50%; padding: 0;
-  border: 2px solid transparent; outline: 1px solid rgba(255,255,255,.25); display: grid; overflow: hidden;
-  grid-template-columns: 1fr 1fr; transition: transform .2s;
-}
-.themes button:hover { transform: scale(1.12); }
-.themes button[aria-pressed="true"] { border-color: #fff; }
-.themes button i { display: block; }
-@media (max-width: 560px) { .themes .name { display: none; } .themes { left: 50%; transform: translateX(-50%); } }
 </style>
 </head>
 <body>
@@ -576,7 +558,6 @@ footer .meta a:hover { text-decoration: underline; }
   <div class="wordmark" aria-hidden="true">StayLive</div>
 </footer>
 
-<div class="themes" role="group" aria-label="Colour theme"><span class="name"></span><div class="sw"></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
@@ -584,35 +565,6 @@ footer .meta a:hover { text-decoration: underline; }
 (() => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const THEMES = [
-    ['Signal', '#0e0e0c', '#eeeae2', '#ff5b1f', '#0e0e0c', '#e2470c'],
-    ['Acid', '#0c0d0a', '#f1f1ea', '#c8ff2e', '#0c0d0a', '#4f6b00'],
-    ['Cobalt', '#0a0d1c', '#eceef4', '#3a5bff', '#ffffff', '#2f4ff0'],
-    ['Amber', '#0f1b15', '#efe9dc', '#f2b53c', '#0f1b15', '#a86f00'],
-    ['Rose', '#141011', '#f6eee9', '#ff4f8b', '#141011', '#d92a6a'],
-    ['Violet', '#0d0b14', '#efecf6', '#8b5cff', '#ffffff', '#6a3cf0'],
-    ['Red', '#000000', '#ffffff', '#ff2a1a', '#000000', '#e81e10'],
-  ];
-  const root = document.documentElement, picker = document.querySelector('.themes');
-  const applyTheme = i => {
-    const [name, ink, bone, accent, on, light] = THEMES[i];
-    Object.entries({ '--ink': ink, '--bone': bone, '--accent': accent, '--on-accent': on, '--accent-light': light })
-      .forEach(([k, v]) => root.style.setProperty(k, v));
-    document.querySelector('meta[name="theme-color"]').content = ink;
-    picker.querySelector('.name').textContent = name;
-    picker.querySelectorAll('button').forEach((b, j) => b.setAttribute('aria-pressed', String(j === i)));
-    try { localStorage.setItem('staylive-theme', String(i)); } catch {}
-  };
-  THEMES.forEach(([name, ink, bone, accent], i) => {
-    const b = document.createElement('button');
-    b.title = name; b.setAttribute('aria-label', name + ' theme');
-    b.innerHTML = `<i style="background:${ink}"></i><i style="background:${accent}"></i>`;
-    b.addEventListener('click', () => applyTheme(i));
-    picker.querySelector('.sw').appendChild(b);
-  });
-  let saved = 0;
-  try { saved = Math.min(+localStorage.getItem('staylive-theme') || 0, THEMES.length - 1); } catch {}
-  applyTheme(saved);
 
   function rng(seed) {
     let s = seed >>> 0;
