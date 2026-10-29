@@ -19,11 +19,14 @@
   --bone: #eeeae2;
   --accent: #ff5b1f;
 
-  --ink-2: #171715;
-  --line-dark: rgba(238,234,226,0.14);
-  --line-light: rgba(14,14,12,0.14);
-  --dim-dark: rgba(238,234,226,0.56);
-  --dim-light: rgba(14,14,12,0.58);
+  --on-accent: var(--ink);
+  --accent-light: var(--accent);
+
+  --ink-2: color-mix(in srgb, var(--ink) 92%, var(--bone));
+  --line-dark: color-mix(in srgb, var(--bone) 14%, transparent);
+  --line-light: color-mix(in srgb, var(--ink) 14%, transparent);
+  --dim-dark: color-mix(in srgb, var(--bone) 56%, transparent);
+  --dim-light: color-mix(in srgb, var(--ink) 58%, transparent);
   --sans: Geist, -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
   --serif: "Instrument Serif", "Times New Roman", serif;
   --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -40,7 +43,7 @@ body {
 }
 a { color: inherit; text-decoration: none; }
 canvas, img { display: block; }
-::selection { background: var(--accent); color: var(--ink); }
+::selection { background: var(--accent); color: var(--on-accent); }
 
 .mono { font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.02em; text-transform: uppercase; }
 .serif { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.01em; }
@@ -78,7 +81,7 @@ canvas, img { display: block; }
 .btn .dot svg { width: 14px; height: 14px; }
 .btn:hover .dot { transform: rotate(-45deg); }
 .btn.down:hover .dot { transform: translateY(2px); }
-.btn.solid { background: var(--accent); color: var(--ink); }
+.btn.solid { background: var(--accent); color: var(--on-accent); }
 .btn.solid .dot { background: var(--ink); color: var(--accent); }
 .btn.line { border: 1px solid currentColor; }
 .btn.line .dot { background: currentColor; }
@@ -100,7 +103,7 @@ canvas, img { display: block; }
 .hero .ctas { display: flex; gap: 10px; flex-wrap: wrap; }
 .tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
 .tag { font: 500 12.5px var(--mono); text-transform: uppercase; letter-spacing: .03em; padding: 7px 12px; border: 1px solid var(--line-dark); border-radius: 999px; color: var(--dim-dark); }
-.tag.hot { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+.tag.hot { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
 /* scroll stage */
 .stage { height: 260vh; position: relative; }
@@ -108,7 +111,7 @@ canvas, img { display: block; }
 .screen {
   position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #000;
   transform: scale(.64); border-radius: 36px; will-change: transform, border-radius;
-  box-shadow: 0 0 0 1px rgba(238,234,226,0.12);
+  box-shadow: 0 0 0 1px var(--line-dark);
 }
 .screen canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .menubar {
@@ -138,7 +141,7 @@ canvas, img { display: block; }
 .switcher button[aria-pressed="true"] { background: var(--bone); color: var(--ink); }
 
 /* marquee */
-.marquee { background: var(--accent); color: var(--ink); overflow: hidden; padding: 22px 0; border-top: 1px solid var(--ink); }
+.marquee { background: var(--accent); color: var(--on-accent); overflow: hidden; padding: 22px 0; border-top: 1px solid var(--ink); }
 .marquee .track { display: flex; width: max-content; will-change: transform; }
 .marquee .item { display: flex; align-items: center; gap: 34px; padding-right: 34px; font-weight: 600; font-size: clamp(34px, 5vw, 76px); line-height: 1; letter-spacing: -0.05em; white-space: nowrap; }
 .marquee .item .serif { font-weight: 400; }
@@ -151,6 +154,7 @@ canvas, img { display: block; }
 .light .label { color: var(--dim-light); }
 .dark .label { color: var(--dim-dark); }
 .label b { color: var(--accent); font-weight: 500; }
+.light .label b, .light .panel .num, .light .zero .cur, .light .stat .n .serif, .light .step .n { color: var(--accent-light); }
 h2.big { margin: 0; font-weight: 600; font-size: clamp(48px, 8.4vw, 148px); line-height: .9; letter-spacing: -0.06em; }
 h2.big .serif { letter-spacing: -0.03em; }
 
@@ -212,10 +216,10 @@ h2.big .serif { letter-spacing: -0.03em; }
   padding: 30px 0; border-bottom: 1px solid var(--line-dark); isolation: isolate; transition: color .35s ease;
 }
 .feat::before { content: ""; position: absolute; inset: 0 calc(-1 * var(--gutter)); background: var(--accent); z-index: -1; transform: scaleY(0); transform-origin: bottom; transition: transform .45s cubic-bezier(.2,.8,.2,1); }
-.feat:hover { color: var(--ink); }
+.feat:hover { color: var(--on-accent); }
 .feat:hover::before { transform: scaleY(1); }
 .feat .i { font: 500 14px var(--mono); color: var(--dim-dark); transition: color .35s; }
-.feat:hover .i, .feat:hover p { color: var(--ink); }
+.feat:hover .i, .feat:hover p { color: var(--on-accent); }
 .feat h3 { margin: 0; font-weight: 600; font-size: clamp(26px, 3vw, 46px); letter-spacing: -0.045em; line-height: 1; }
 .feat p { margin: 0; color: var(--dim-dark); font-size: 16px; transition: color .35s; }
 .feat .arr { justify-self: end; width: 22px; height: 22px; transition: transform .45s cubic-bezier(.2,.8,.2,1); }
@@ -229,14 +233,14 @@ h2.big .serif { letter-spacing: -0.03em; }
 .term .bar { display: flex; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--line-dark); color: var(--dim-dark); font-size: 12px; text-transform: uppercase; }
 .term .bar span:last-child { color: var(--accent); }
 .term pre { margin: 0; padding: 22px 22px 26px; overflow-x: auto; }
-.term .c { color: rgba(238,234,226,.45); } .term .k { color: var(--accent); }
+.term .c { color: color-mix(in srgb, var(--bone) 45%, transparent); } .term .k { color: var(--accent); }
 
 /* screenshots */
 .shots-main { margin-top: 50px; border-radius: 22px; overflow: hidden; border: 1px solid var(--line-dark); background: var(--ink-2); }
 .shots-main img { width: 100%; height: auto; }
 .shots-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
 .shots-tabs button { appearance: none; cursor: pointer; font: 500 14px var(--sans); color: var(--bone); background: transparent; border: 1px solid var(--line-dark); padding: 9px 16px; border-radius: 999px; }
-.shots-tabs button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+.shots-tabs button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .shots-caption { color: var(--dim-dark); margin-top: 14px; min-height: 1.6em; }
 
 /* steps */
@@ -266,14 +270,14 @@ h2.big .serif { letter-spacing: -0.03em; }
 .faq .a a { color: var(--bone); text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 3px; }
 
 /* footer */
-footer { background: var(--accent); color: var(--ink); overflow: hidden; padding-top: clamp(80px, 10vw, 140px); }
+footer { background: var(--accent); color: var(--on-accent); overflow: hidden; padding-top: clamp(80px, 10vw, 140px); }
 footer .top { display: grid; grid-template-columns: 1fr auto; gap: 30px; align-items: end; }
 footer h2 { margin: 0; font-weight: 600; font-size: clamp(44px, 6.6vw, 112px); line-height: .9; letter-spacing: -0.06em; }
 footer .ctas { display: flex; gap: 10px; flex-wrap: wrap; }
 footer .btn.solid { background: var(--ink); color: var(--bone); }
 footer .btn.solid .dot { background: var(--accent); color: var(--ink); }
 footer .btn.line .dot svg { color: var(--accent); }
-footer .meta { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-top: 80px; padding-top: 16px; border-top: 1px solid rgba(14,14,12,.25); }
+footer .meta { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-top: 80px; padding-top: 16px; border-top: 1px solid color-mix(in srgb, var(--on-accent) 25%, transparent); }
 footer .meta .links { display: flex; gap: 22px; flex-wrap: wrap; }
 footer .meta a:hover { text-decoration: underline; }
 .wordmark { font-weight: 700; font-size: 23.4vw; line-height: .74; letter-spacing: -0.075em; white-space: nowrap; margin: 4vw 0 -2.4vw -0.6vw; }
@@ -313,6 +317,25 @@ footer .meta a:hover { text-decoration: underline; }
   .screen { transform: none; border-radius: 0; }
   .chip .bars b { animation: none; height: 8px; }
 }
+
+/* theme picker */
+.themes {
+  position: fixed; left: 16px; bottom: 16px; z-index: 95; display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px 8px 14px; border-radius: 999px; background: rgba(20,20,20,.72); color: #fff;
+  border: 1px solid rgba(255,255,255,.14); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  font: 500 12px var(--mono); text-transform: uppercase; letter-spacing: .03em;
+}
+.themes .name { min-width: 64px; }
+.themes .sw { display: flex; gap: 6px; }
+.themes button {
+  appearance: none; cursor: pointer; width: 26px; height: 26px; border-radius: 50%; padding: 0;
+  border: 2px solid transparent; outline: 1px solid rgba(255,255,255,.25); display: grid; overflow: hidden;
+  grid-template-columns: 1fr 1fr; transition: transform .2s;
+}
+.themes button:hover { transform: scale(1.12); }
+.themes button[aria-pressed="true"] { border-color: #fff; }
+.themes button i { display: block; }
+@media (max-width: 560px) { .themes .name { display: none; } .themes { left: 50%; transform: translateX(-50%); } }
 </style>
 </head>
 <body>
@@ -553,12 +576,43 @@ footer .meta a:hover { text-decoration: underline; }
   <div class="wordmark" aria-hidden="true">StayLive</div>
 </footer>
 
+<div class="themes" role="group" aria-label="Colour theme"><span class="name"></span><div class="sw"></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
 <script>
 (() => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const THEMES = [
+    ['Signal', '#0e0e0c', '#eeeae2', '#ff5b1f', '#0e0e0c', '#e2470c'],
+    ['Acid', '#0c0d0a', '#f1f1ea', '#c8ff2e', '#0c0d0a', '#4f6b00'],
+    ['Cobalt', '#0a0d1c', '#eceef4', '#3a5bff', '#ffffff', '#2f4ff0'],
+    ['Amber', '#0f1b15', '#efe9dc', '#f2b53c', '#0f1b15', '#a86f00'],
+    ['Rose', '#141011', '#f6eee9', '#ff4f8b', '#141011', '#d92a6a'],
+    ['Violet', '#0d0b14', '#efecf6', '#8b5cff', '#ffffff', '#6a3cf0'],
+    ['Red', '#000000', '#ffffff', '#ff2a1a', '#000000', '#e81e10'],
+  ];
+  const root = document.documentElement, picker = document.querySelector('.themes');
+  const applyTheme = i => {
+    const [name, ink, bone, accent, on, light] = THEMES[i];
+    Object.entries({ '--ink': ink, '--bone': bone, '--accent': accent, '--on-accent': on, '--accent-light': light })
+      .forEach(([k, v]) => root.style.setProperty(k, v));
+    document.querySelector('meta[name="theme-color"]').content = ink;
+    picker.querySelector('.name').textContent = name;
+    picker.querySelectorAll('button').forEach((b, j) => b.setAttribute('aria-pressed', String(j === i)));
+    try { localStorage.setItem('staylive-theme', String(i)); } catch {}
+  };
+  THEMES.forEach(([name, ink, bone, accent], i) => {
+    const b = document.createElement('button');
+    b.title = name; b.setAttribute('aria-label', name + ' theme');
+    b.innerHTML = `<i style="background:${ink}"></i><i style="background:${accent}"></i>`;
+    b.addEventListener('click', () => applyTheme(i));
+    picker.querySelector('.sw').appendChild(b);
+  });
+  let saved = 0;
+  try { saved = Math.min(+localStorage.getItem('staylive-theme') || 0, THEMES.length - 1); } catch {}
+  applyTheme(saved);
 
   function rng(seed) {
     let s = seed >>> 0;
